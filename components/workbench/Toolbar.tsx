@@ -1,0 +1,75 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { ChevronDown, Play, RotateCcw, RotateCw, ScanSearch } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+
+interface ToolbarProps {
+  onCenter: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  onRun: () => void;
+}
+
+const buttons = [
+  {
+    id: "run",
+    icon: Play,
+    onPress: (props: ToolbarProps) => props.onRun(),
+    className: "text-[#30384a]",
+    withChevron: true,
+  },
+  {
+    id: "undo",
+    icon: RotateCcw,
+    onPress: (props: ToolbarProps) => props.onUndo(),
+    className: "text-[#4f5868]",
+    withChevron: false,
+  },
+  {
+    id: "redo",
+    icon: RotateCw,
+    onPress: (props: ToolbarProps) => props.onRedo(),
+    className: "text-[#4f5868]",
+    withChevron: false,
+  },
+  {
+    id: "center",
+    icon: ScanSearch,
+    onPress: (props: ToolbarProps) => props.onCenter(),
+    className: "text-[#4f5868]",
+    withChevron: false,
+  },
+] as const;
+
+export function Toolbar(props: ToolbarProps) {
+  return (
+    <div className="pointer-events-none absolute bottom-7 left-1/2 z-40 -translate-x-1/2">
+      <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-white/90 bg-white/95 p-1.5 shadow-[0_18px_35px_rgba(15,23,42,0.16)] backdrop-blur-md">
+        {buttons.map((item) => {
+          const Icon = item.icon;
+          return (
+            <motion.button
+              key={item.id}
+              type="button"
+              whileHover={{ y: -2, scale: 1.03 }}
+              whileTap={{ scale: 0.96 }}
+              transition={{ type: "spring", stiffness: 380, damping: 22 }}
+              onClick={() => item.onPress(props)}
+              className={cn(
+                "flex h-10 items-center gap-1 rounded-full px-3 text-sm font-semibold transition-colors",
+                "hover:bg-[#f2f4f8]",
+                item.className,
+              )}
+              aria-label={item.id}
+            >
+              <Icon className="h-4 w-4" />
+              {item.withChevron ? <ChevronDown className="h-3.5 w-3.5" /> : null}
+            </motion.button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
