@@ -39,6 +39,7 @@ export interface NoteNodeData extends Record<string, unknown> {
   checklist: string[];
   tag: AgentTag;
   entryDelay?: number;
+  isDimmed?: boolean;
 }
 
 export interface DocumentNodeData extends Record<string, unknown> {
@@ -49,6 +50,7 @@ export interface DocumentNodeData extends Record<string, unknown> {
   previewFile: WorkFile;
   onOpenPreview?: (file: WorkFile) => void;
   entryDelay?: number;
+  isDimmed?: boolean;
 }
 
 export interface MediaNodeData extends Record<string, unknown> {
@@ -59,6 +61,7 @@ export interface MediaNodeData extends Record<string, unknown> {
   previewFile: WorkFile;
   onOpenPreview?: (file: WorkFile) => void;
   entryDelay?: number;
+  isDimmed?: boolean;
 }
 
 export interface VideoGenerationNodeData extends Record<string, unknown> {
@@ -69,6 +72,7 @@ export interface VideoGenerationNodeData extends Record<string, unknown> {
   previewFile: WorkFile;
   onOpenPreview?: (file: WorkFile) => void;
   entryDelay?: number;
+  isDimmed?: boolean;
 }
 
 export interface GeneratingDocumentNodeData extends Record<string, unknown> {
@@ -80,6 +84,7 @@ export interface GeneratingDocumentNodeData extends Record<string, unknown> {
   progress: number;
   eta: string;
   entryDelay?: number;
+  isDimmed?: boolean;
 }
 
 export interface FolderNodeData extends Record<string, unknown> {
@@ -90,6 +95,9 @@ export interface FolderNodeData extends Record<string, unknown> {
   files: WorkFile[];
   onOpenPreview?: (file: WorkFile) => void;
   entryDelay?: number;
+  isDimmed?: boolean;
+  isExpanded?: boolean;
+  onToggleExpanded?: (expanded: boolean) => void;
 }
 
 export type WorkbenchNode =

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -31,7 +31,7 @@ import {
 } from "./NodeCard";
 import { FolderNode } from "./FolderNode";
 import { Toolbar } from "./Toolbar";
-import type { WorkFile, WorkbenchNode } from "./types";
+import type { FolderNodeData, WorkFile, WorkbenchNode } from "./types";
 
 interface CanvasStageProps {
   onOpenSidebar: () => void;
@@ -144,6 +144,7 @@ function CanvasContent({
 
   const initialNodes = useMemo(() => buildCanvasNodes(openPreview), [openPreview]);
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkbenchNode>(initialNodes);
+  const [expandedFolderId, setExpandedFolderId] = useState<string | null>(null);
   const { fitView, setCenter } = useReactFlow<WorkbenchNode>();
   const { zoom } = useViewport();
   const hasAnimatedLayoutTransition = useRef(false);
@@ -160,6 +161,54 @@ function CanvasContent({
 
     return () => cancelAnimationFrame(animation);
   }, [fitView, initialPadding]);
+
+  const handleFolderToggle = useCallback((folderId: string, expanded: boolean) => {
+    setExpandedFolderId((current) => {
+      if (expanded) {
+        return folderId;
+      }
+      return current === folderId ? null : current;
+    });
+  }, []);
+
+  useEffect(() => {
+    setNodes((previousNodes) =>
+      previousNodes.map((node) => {
+        const isFocusedFolder = expandedFolderId !== null && node.id === expandedFolderId;
+        const isDimmed = expandedFolderId !== null && !isFocusedFolder;
+
+        if (node.type === "folder") {
+          return {
+            ...node,
+            style: {
+              ...node.style,
+              opacity: isDimmed ? 0.3 : 1,
+              transition: "opacity 280ms ease",
+            },
+            data: {
+              ...(node.data as FolderNodeData),
+              isDimmed,
+              isExpanded: isFocusedFolder,
+              onToggleExpanded: (expanded: boolean) => handleFolderToggle(node.id, expanded),
+            },
+          } as WorkbenchNode;
+        }
+
+        return {
+          ...node,
+          style: {
+            ...node.style,
+            opacity: isDimmed ? 0.3 : 1,
+            transition: "opacity 280ms ease",
+          },
+          data: {
+            ...node.data,
+            isDimmed,
+          },
+        } as WorkbenchNode;
+      }) as WorkbenchNode[],
+    );
+  }, [expandedFolderId, handleFolderToggle, setNodes]);
 
   useEffect(() => {
     if (!hasAnimatedLayoutTransition.current) {

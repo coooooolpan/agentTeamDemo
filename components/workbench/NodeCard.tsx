@@ -22,6 +22,7 @@ export const TaskNoteNode = memo(function TaskNoteNode({
 }: NodeProps) {
   const nodeData = data as NoteNodeData;
   const entryDelay = getEntryDelay(nodeData);
+  const nodeOpacity = nodeData.isDimmed ? 0.3 : 1;
   const reduceMotion = useReducedMotion();
   const checklistLength = nodeData.checklist.length;
   const completionSequence = useMemo(() => {
@@ -57,7 +58,8 @@ export const TaskNoteNode = memo(function TaskNoteNode({
       layout
       initial={{ opacity: 0, y: 20, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      className="relative w-[268px] cursor-grab rounded-[20px] border border-[#9fd7b8] bg-[#b8f2cc] p-5 shadow-[0_20px_30px_rgba(22,163,74,0.14)] active:cursor-grabbing"
+      className="relative w-[268px] cursor-grab rounded-[20px] border border-[#9fd7b8] bg-[#b8f2cc] p-5 shadow-[0_20px_30px_rgba(22,163,74,0.14)] transition-opacity duration-300 active:cursor-grabbing"
+      style={{ opacity: nodeOpacity }}
       whileHover={{
         y: -4,
         transition: { type: "spring", stiffness: 300, damping: 24, delay: 0 },
@@ -122,6 +124,7 @@ export const DocumentNode = memo(function DocumentNode({
 }: NodeProps) {
   const nodeData = data as DocumentNodeData;
   const entryDelay = getEntryDelay(nodeData);
+  const nodeOpacity = nodeData.isDimmed ? 0.3 : 1;
 
   const handleClick = () => {
     nodeData.onOpenPreview?.(nodeData.previewFile);
@@ -132,7 +135,8 @@ export const DocumentNode = memo(function DocumentNode({
       type="button"
       initial={{ opacity: 0, y: 20, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      className="relative w-[200px] cursor-grab rounded-[20px] border border-[#eceef2] bg-white p-4 text-left shadow-[0_18px_32px_rgba(15,23,42,0.12)] active:cursor-grabbing"
+      className="relative w-[200px] cursor-grab rounded-[20px] border border-[#eceef2] bg-white p-4 text-left shadow-[0_18px_32px_rgba(15,23,42,0.12)] transition-opacity duration-300 active:cursor-grabbing"
+      style={{ opacity: nodeOpacity }}
       whileHover={{
         y: -5,
         transition: { type: "spring", stiffness: 300, damping: 24, delay: 0 },
@@ -210,6 +214,7 @@ export const GeneratingDocumentNode = memo(function GeneratingDocumentNode({
 }: NodeProps) {
   const nodeData = data as GeneratingDocumentNodeData;
   const entryDelay = getEntryDelay(nodeData);
+  const nodeOpacity = nodeData.isDimmed ? 0.3 : 1;
   const reduceMotion = useReducedMotion();
   const [activeCursorIds, setActiveCursorIds] = useState<string[]>([
     documentGeneratingCursorSequence[0].id,
@@ -262,7 +267,7 @@ export const GeneratingDocumentNode = memo(function GeneratingDocumentNode({
   );
 
   return (
-    <div className="relative w-[200px]">
+    <div className="relative w-[200px] transition-opacity duration-300" style={{ opacity: nodeOpacity }}>
       <AnimatePresence initial={false}>
         {documentGeneratingCursorSequence
           .filter((cursor) => visibleCursorSet.has(cursor.id))
@@ -370,6 +375,7 @@ export const MediaNode = memo(function MediaNode({
 }: NodeProps) {
   const nodeData = data as MediaNodeData;
   const entryDelay = getEntryDelay(nodeData);
+  const nodeOpacity = nodeData.isDimmed ? 0.3 : 1;
 
   const handleClick = () => {
     nodeData.onOpenPreview?.(nodeData.previewFile);
@@ -381,7 +387,8 @@ export const MediaNode = memo(function MediaNode({
       onClick={handleClick}
       initial={{ opacity: 0, y: 20, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      className="relative w-[430px] cursor-grab rounded-[24px] border border-[#e7eaf0] bg-white p-4 text-left shadow-[0_20px_35px_rgba(15,23,42,0.08)] active:cursor-grabbing"
+      className="relative w-[430px] cursor-grab rounded-[24px] border border-[#e7eaf0] bg-white p-4 text-left shadow-[0_20px_35px_rgba(15,23,42,0.08)] transition-opacity duration-300 active:cursor-grabbing"
+      style={{ opacity: nodeOpacity }}
       whileHover={{
         y: -5,
         transition: { type: "spring", stiffness: 300, damping: 24, delay: 0 },
@@ -560,6 +567,7 @@ export const VideoGenerationNode = memo(function VideoGenerationNode({
 }: NodeProps) {
   const nodeData = data as VideoGenerationNodeData;
   const entryDelay = getEntryDelay(nodeData);
+  const nodeOpacity = nodeData.isDimmed ? 0.3 : 1;
   const reduceMotion = useReducedMotion();
   const [activeCursorIds, setActiveCursorIds] = useState<string[]>([
     agentCursorSequence[0].id,
@@ -609,7 +617,7 @@ export const VideoGenerationNode = memo(function VideoGenerationNode({
   );
 
   return (
-    <div className="relative w-[430px]">
+    <div className="relative w-[430px] transition-opacity duration-300" style={{ opacity: nodeOpacity }}>
       <AnimatePresence initial={false}>
         {agentCursorSequence
           .filter((cursor) => visibleCursorSet.has(cursor.id))

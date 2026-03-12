@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo } from "react";
 import type { NodeProps } from "@xyflow/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, Clock3, FolderOpen } from "lucide-react";
@@ -18,7 +18,8 @@ export const FolderNode = memo(function FolderNode({
 }: NodeProps) {
   const nodeData = data as FolderNodeData;
   const entryDelay = getEntryDelay(nodeData);
-  const [expanded, setExpanded] = useState(false);
+  const expanded = !!nodeData.isExpanded;
+  const nodeOpacity = nodeData.isDimmed ? 0.3 : 1;
 
   const statusUi = useMemo(() => {
     if (nodeData.status === "thinking") {
@@ -41,9 +42,9 @@ export const FolderNode = memo(function FolderNode({
   return (
     <motion.div
       initial={{ opacity: 0, y: 22, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
+      animate={{ opacity: nodeOpacity, y: 0, scale: 1 }}
       transition={{ type: "spring", stiffness: 280, damping: 24, delay: entryDelay }}
-      className="relative w-[360px]"
+      className="relative w-[360px] transition-opacity duration-300"
     >
       <AnimatePresence>
         {expanded ? (
@@ -84,7 +85,7 @@ export const FolderNode = memo(function FolderNode({
           className="w-full cursor-grab text-left active:cursor-grabbing"
           onClick={(event) => {
             event.stopPropagation();
-            setExpanded((prev) => !prev);
+            nodeData.onToggleExpanded?.(!expanded);
           }}
         >
           <div className={cn("mb-4 flex items-center gap-2 text-sm font-semibold", statusUi.text)}>
