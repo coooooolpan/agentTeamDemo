@@ -6,7 +6,6 @@
   --panel: #f8f9fb;
   --foreground: #14181f;
   --muted: #7f8798;
-  --grid-dot: rgba(147, 157, 176, 0.34);
 }
 
 * {
@@ -35,12 +34,6 @@ h6 {
     sans-serif;
 }
 
-.canvas-dot-grid {
-  background-color: #f3f4f7;
-  background-image: radial-gradient(var(--grid-dot) 1.3px, transparent 1.3px);
-  background-size: 28px 28px;
-}
-
 .react-flow__attribution {
   display: none;
 }
@@ -65,4 +58,22 @@ h6 {
 ::-webkit-scrollbar-thumb {
   border-radius: 999px;
   background: rgba(121, 129, 146, 0.45);
+}
+
+.chat-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(132, 142, 160, 0.22) transparent;
+}
+
+.chat-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.chat-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(132, 142, 160, 0.22);
 }

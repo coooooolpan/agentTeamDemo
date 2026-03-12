@@ -2,6 +2,7 @@ import type {
   WorkFile,
   WorkbenchNode,
   AgentTag,
+  ChatAgentCard,
   NoteNodeData,
   DocumentNodeData,
   MediaNodeData,
@@ -14,6 +15,69 @@ export const chatGalleryGradients = [
   "linear-gradient(135deg, #54C8FA, #4C7DFF)",
   "linear-gradient(135deg, #FCA5A5, #DC2626)",
   "linear-gradient(135deg, #86EFAC, #15803D)",
+];
+
+export const chatAgentCards: ChatAgentCard[] = [
+  {
+    id: "agent-research",
+    name: "Research Agent",
+    summary: "Competitor analysis and trend insights",
+    color: "purple",
+    status: "done",
+    currentTask: "Completed benchmark scan across 32 pages.",
+    tools: ["Web Crawler", "SERP Synthesizer", "Signal Ranker"],
+    outputs: ["Market Landscape Report", "Campaign Channel Matrix"],
+    recentLogs: [
+      "Parsed Amazon/TikTok category signals.",
+      "Ranked top-converting benefit claims.",
+      "Delivered whitespace opportunity list.",
+    ],
+  },
+  {
+    id: "agent-marketing",
+    name: "Marketing Agent",
+    summary: "Social media creative strategy and copy hooks",
+    color: "green",
+    status: "running",
+    currentTask: "Generating conversion-first message matrix for IG/TikTok.",
+    tools: ["Copy Brain", "Tone Guard", "CTA Composer"],
+    outputs: ["Brand Copy Guidelines", "Hook Variants Pack"],
+    recentLogs: [
+      "Drafted USP-based opening lines.",
+      "Scored hooks with click intent model.",
+      "Aligning copy tone with compliance policy.",
+    ],
+  },
+  {
+    id: "agent-generation",
+    name: "Generation Agent",
+    summary: "Poster and product video asset production",
+    color: "blue",
+    status: "running",
+    currentTask: "Rendering poster drafts and 15s storyboard frames.",
+    tools: ["Visual Composer", "Frame Generator", "Motion Timeline"],
+    outputs: ["Visual Concept Board", "Promo Video Storyboard"],
+    recentLogs: [
+      "Built 3 poster composition directions.",
+      "Rendered opening sequence keyframes.",
+      "Syncing subtitle pacing with beat markers.",
+    ],
+  },
+  {
+    id: "agent-review",
+    name: "Review Agent",
+    summary: "Quality and compliance verification",
+    color: "orange",
+    status: "idle",
+    currentTask: "Queued for final policy and brand consistency check.",
+    tools: ["Policy Validator", "Brand QA", "Risk Scanner"],
+    outputs: ["Content QA Checklist", "Risk Annotation Notes"],
+    recentLogs: [
+      "Prepared legal phrase detection rules.",
+      "Loaded brand voice baseline profile.",
+      "Waiting for latest creative iteration.",
+    ],
+  },
 ];
 
 export const timelineEvents = [

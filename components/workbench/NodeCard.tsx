@@ -5,76 +5,11 @@ import type { NodeProps } from "@xyflow/react";
 import { CheckCircle2, CirclePlay, FileText } from "lucide-react";
 import { motion } from "framer-motion";
 
-import { cn } from "@/lib/utils";
 import type {
-  AgentColor,
-  AgentPlacement,
   DocumentNodeData,
   MediaNodeData,
   NoteNodeData,
 } from "./types";
-
-const pillScheme: Record<AgentColor, string> = {
-  red: "bg-[#ff5f55] text-white",
-  purple: "bg-[#7C3AED] text-white",
-  blue: "bg-[#1d96ff] text-white",
-  orange: "bg-[#fb9334] text-white",
-  green: "bg-[#16ba67] text-white",
-};
-
-function placementClass(placement: AgentPlacement) {
-  if (placement === "right") {
-    return {
-      wrapper: "-right-40 top-1/2 -translate-y-1/2",
-      pointer: "-left-1.5 top-1/2 -translate-y-1/2",
-    };
-  }
-
-  if (placement === "top-right") {
-    return {
-      wrapper: "right-2 -top-14",
-      pointer: "left-6 -bottom-1.5",
-    };
-  }
-
-  return {
-    wrapper: "left-1/2 -translate-x-1/2 -bottom-14",
-    pointer: "left-1/2 -translate-x-1/2 -top-1.5",
-  };
-}
-
-export function AgentPill({
-  label,
-  color,
-  placement = "bottom",
-}: {
-  label: string;
-  color: AgentColor;
-  placement?: AgentPlacement;
-}) {
-  const placementStyles = placementClass(placement);
-
-  return (
-    <div className={cn("pointer-events-none absolute z-20", placementStyles.wrapper)}>
-      <div
-        className={cn(
-          "relative rounded-full px-5 py-2 text-xs font-semibold shadow-[0_8px_20px_rgba(17,24,39,0.16)]",
-          pillScheme[color],
-        )}
-      >
-        <span className="text-xs tracking-[0.01em]">{label}</span>
-        <span
-          className={cn(
-            "absolute h-3 w-3 rotate-45 rounded-[2px]",
-            pillScheme[color],
-            placementStyles.pointer,
-          )}
-          aria-hidden="true"
-        />
-      </div>
-    </div>
-  );
-}
 
 export const TaskNoteNode = memo(function TaskNoteNode({
   data,
@@ -99,11 +34,6 @@ export const TaskNoteNode = memo(function TaskNoteNode({
           </li>
         ))}
       </ul>
-      <AgentPill
-        label={nodeData.tag.label}
-        color={nodeData.tag.color}
-        placement={nodeData.tag.placement}
-      />
     </motion.div>
   );
 });
@@ -142,12 +72,6 @@ export const DocumentNode = memo(function DocumentNode({
       <div className="mt-3 rounded-xl border border-[#eef2f6] bg-[#fbfcfe] p-2 text-[10px] text-[#8d95a3]">
         Research excerpt preview
       </div>
-
-      <AgentPill
-        label={nodeData.tag.label}
-        color={nodeData.tag.color}
-        placement={nodeData.tag.placement}
-      />
     </motion.button>
   );
 });
@@ -183,12 +107,6 @@ export const MediaNode = memo(function MediaNode({
         <div className="font-semibold text-[#202733]">{nodeData.title}</div>
         <FileText className="h-4 w-4" />
       </div>
-
-      <AgentPill
-        label={nodeData.tag.label}
-        color={nodeData.tag.color}
-        placement={nodeData.tag.placement}
-      />
     </motion.button>
   );
 });

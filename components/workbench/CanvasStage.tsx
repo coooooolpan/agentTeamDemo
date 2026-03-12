@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
   Background,
   BackgroundVariant,
   ReactFlow,
   ReactFlowProvider,
   type NodeTypes,
+  useViewport,
   useNodesState,
   useReactFlow,
 } from "@xyflow/react";
@@ -28,6 +29,10 @@ import type { WorkFile, WorkbenchNode } from "./types";
 
 interface CanvasStageProps {
   onOpenSidebar: () => void;
+  activeFile: WorkFile | null;
+  onOpenFilePreview: (file: WorkFile) => void;
+  onCloseFilePreview: () => void;
+  onCanvasPaneClick: () => void;
 }
 
 const nodeTypes: NodeTypes = {
@@ -113,16 +118,27 @@ function PreviewPanel({
   );
 }
 
-function CanvasContent({ onOpenSidebar }: CanvasStageProps) {
-  const [activeFile, setActiveFile] = useState<WorkFile | null>(null);
-
-  const openPreview = useCallback((file: WorkFile) => {
-    setActiveFile(file);
-  }, []);
+function CanvasContent({
+  onOpenSidebar,
+  activeFile,
+  onOpenFilePreview,
+  onCloseFilePreview,
+  onCanvasPaneClick,
+}: CanvasStageProps) {
+  const openPreview = useCallback(
+    (file: WorkFile) => {
+      onOpenFilePreview(file);
+    },
+    [onOpenFilePreview],
+  );
 
   const initialNodes = useMemo(() => buildCanvasNodes(openPreview), [openPreview]);
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkbenchNode>(initialNodes);
   const { fitView, setCenter } = useReactFlow<WorkbenchNode>();
+  const { zoom } = useViewport();
+  const zoomForDotScale = Math.max(zoom, 1);
+  const backgroundDotGap = 48 / zoomForDotScale;
+  const backgroundDotSize = 2.2 / zoomForDotScale;
 
   useEffect(() => {
     const animation = requestAnimationFrame(() => {
@@ -179,14 +195,16 @@ function CanvasContent({ onOpenSidebar }: CanvasStageProps) {
         nodesConnectable={false}
         elementsSelectable={false}
         onNodeDoubleClick={onNodeDoubleClick}
-        onPaneClick={() => setActiveFile(null)}
-        className="canvas-dot-grid"
+        onPaneClick={() => {
+          onCloseFilePreview();
+          onCanvasPaneClick();
+        }}
       >
         <Background
           variant={BackgroundVariant.Dots}
           color="rgba(160,169,186,0.45)"
-          gap={28}
-          size={1.2}
+          gap={backgroundDotGap}
+          size={backgroundDotSize}
         />
       </ReactFlow>
 
@@ -196,13 +214,13 @@ function CanvasContent({ onOpenSidebar }: CanvasStageProps) {
        */}
       <AnimatePresence>
         {activeFile ? (
-          <PreviewPanel activeFile={activeFile} onClose={() => setActiveFile(null)} />
+          <PreviewPanel activeFile={activeFile} onClose={onCloseFilePreview} />
         ) : null}
       </AnimatePresence>
 
       <Toolbar
         onRun={() => {
-          setActiveFile(null);
+          onCloseFilePreview();
         }}
         onUndo={() => {
           setNodes((prev) => prev.map((node) => ({ ...node })));
@@ -218,10 +236,22 @@ function CanvasContent({ onOpenSidebar }: CanvasStageProps) {
   );
 }
 
-export function CanvasStage({ onOpenSidebar }: CanvasStageProps) {
+export function CanvasStage({
+  onOpenSidebar,
+  activeFile,
+  onOpenFilePreview,
+  onCloseFilePreview,
+  onCanvasPaneClick,
+}: CanvasStageProps) {
   return (
     <ReactFlowProvider>
-      <CanvasContent onOpenSidebar={onOpenSidebar} />
+      <CanvasContent
+        onOpenSidebar={onOpenSidebar}
+        activeFile={activeFile}
+        onOpenFilePreview={onOpenFilePreview}
+        onCloseFilePreview={onCloseFilePreview}
+        onCanvasPaneClick={onCanvasPaneClick}
+      />
     </ReactFlowProvider>
   );
 }

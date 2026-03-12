@@ -20,6 +20,20 @@ export interface WorkFile {
   note: string;
 }
 
+export type AgentRuntimeStatus = "running" | "idle" | "done";
+
+export interface ChatAgentCard {
+  id: string;
+  name: string;
+  summary: string;
+  color: AgentColor;
+  status: AgentRuntimeStatus;
+  currentTask: string;
+  tools: string[];
+  outputs: string[];
+  recentLogs: string[];
+}
+
 export interface NoteNodeData extends Record<string, unknown> {
   title: string;
   checklist: string[];
