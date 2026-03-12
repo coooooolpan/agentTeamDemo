@@ -5,6 +5,7 @@ import type {
   ChatAgentCard,
   NoteNodeData,
   DocumentNodeData,
+  GeneratingDocumentNodeData,
   MediaNodeData,
   VideoGenerationNodeData,
   FolderNodeData,
@@ -197,7 +198,7 @@ export function buildCanvasNodes(
     {
       id: "note-1",
       type: "note",
-      position: { x: 170, y: 86 },
+      position: { x: 120, y: 80 },
       data: {
         title: "Create a complete marketing asset pack",
         checklist: [
@@ -214,7 +215,7 @@ export function buildCanvasNodes(
     {
       id: "doc-1",
       type: "document",
-      position: { x: 500, y: 70 },
+      position: { x: 460, y: 80 },
       data: {
         title: "Steve Jobs' Philosophy",
         subtitle: "Products and Life",
@@ -233,7 +234,7 @@ export function buildCanvasNodes(
     {
       id: "doc-2",
       type: "document",
-      position: { x: 760, y: 70 },
+      position: { x: 740, y: 80 },
       data: {
         title: "Product Research Brief",
         subtitle: "A Sample Research Document",
@@ -250,9 +251,29 @@ export function buildCanvasNodes(
       draggable: true,
     },
     {
+      id: "doc-generating-1",
+      type: "document-generating",
+      position: { x: 1020, y: 80 },
+      data: {
+        title: "Product Research Brief",
+        subtitle: "A Sample Research Document",
+        excerpt: [
+          "Audience profile and intent clusters.",
+          "Messaging gaps and benchmark findings.",
+          "Recommended offer architecture.",
+        ],
+        previewFile: campaignMatrix,
+        onOpenPreview,
+        progress: 63,
+        eta: "ETA 00:18",
+        entryDelay: 0.16,
+      } satisfies GeneratingDocumentNodeData,
+      draggable: true,
+    },
+    {
       id: "media-1",
       type: "media",
-      position: { x: 86, y: 330 },
+      position: { x: 80, y: 480 },
       data: {
         title: "Campaign Visual Sheet",
         kindLabel: "Image Pack",
@@ -268,7 +289,7 @@ export function buildCanvasNodes(
     {
       id: "media-2",
       type: "media",
-      position: { x: 576, y: 330 },
+      position: { x: 610, y: 480 },
       data: {
         title: "Function to Feeling Reel",
         kindLabel: "Video Draft",
@@ -284,7 +305,7 @@ export function buildCanvasNodes(
     {
       id: "video-generation-1",
       type: "video-generation",
-      position: { x: 1068, y: 330 },
+      position: { x: 1160, y: 480 },
       data: {
         title: "Poster Assets + Promo Video Generation",
         subtitle: "5 agents are collaborating around this draft on the infinite canvas.",
@@ -299,7 +320,7 @@ export function buildCanvasNodes(
     {
       id: "folder-1",
       type: "folder",
-      position: { x: 110, y: 670 },
+      position: { x: 90, y: 870 },
       data: {
         title: "Poster Assets + Promo Video Generation",
         filesCount: 12,
@@ -314,7 +335,7 @@ export function buildCanvasNodes(
     {
       id: "folder-2",
       type: "folder",
-      position: { x: 600, y: 670 },
+      position: { x: 560, y: 870 },
       data: {
         title: "Poster Assets + Promo Video (v2 Iteration)",
         filesCount: 12,
@@ -329,7 +350,7 @@ export function buildCanvasNodes(
     {
       id: "folder-3",
       type: "folder",
-      position: { x: 1110, y: 670 },
+      position: { x: 1030, y: 870 },
       data: {
         title: "Demo Product (v1 Draft)",
         filesCount: 12,

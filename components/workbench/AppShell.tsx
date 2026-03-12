@@ -70,7 +70,7 @@ export function AppShell() {
       ) : null}
 
       <main
-        className={`relative h-full xl:transition-[padding-left] xl:duration-500 xl:ease-[cubic-bezier(0.22,1,0.36,1)] ${isPanelMinimized ? "xl:pl-0" : "xl:pl-[500px]"}`}
+        className={`relative h-full xl:[will-change:padding-left] xl:transition-[padding-left] xl:duration-[360ms] xl:ease-[cubic-bezier(0.22,1,0.36,1)] ${isPanelMinimized ? "xl:pl-0" : "xl:pl-[500px]"}`}
       >
         <CanvasStage
           onOpenSidebar={() => setMobileSidebarOpen(true)}

@@ -24,6 +24,7 @@ import {
 import { buildCanvasNodes } from "./mock-data";
 import {
   DocumentNode,
+  GeneratingDocumentNode,
   MediaNode,
   TaskNoteNode,
   VideoGenerationNode,
@@ -44,6 +45,7 @@ interface CanvasStageProps {
 const nodeTypes: NodeTypes = {
   note: TaskNoteNode,
   document: DocumentNode,
+  "document-generating": GeneratingDocumentNode,
   media: MediaNode,
   "video-generation": VideoGenerationNode,
   folder: FolderNode,
@@ -146,6 +148,7 @@ function CanvasContent({
   const { zoom } = useViewport();
   const hasAnimatedLayoutTransition = useRef(false);
   const initialPadding = 0.3;
+  const layoutSettleDelayMs = 460;
   const zoomForDotScale = Math.max(zoom, 1);
   const backgroundDotGap = 48 / zoomForDotScale;
   const backgroundDotSize = 2.2 / zoomForDotScale;
@@ -164,12 +167,12 @@ function CanvasContent({
       return;
     }
 
-    const animation = requestAnimationFrame(() => {
-      fitView({ padding: initialPadding, duration: 480 });
-    });
+    const timeout = window.setTimeout(() => {
+      fitView({ padding: initialPadding, duration: 0 });
+    }, layoutSettleDelayMs);
 
-    return () => cancelAnimationFrame(animation);
-  }, [fitView, initialPadding, isPanelMinimized]);
+    return () => window.clearTimeout(timeout);
+  }, [fitView, initialPadding, isPanelMinimized, layoutSettleDelayMs]);
 
   const onNodeDoubleClick = useCallback(
     (_event: React.MouseEvent, node: WorkbenchNode) => {
@@ -203,6 +206,8 @@ function CanvasContent({
        * which fits this workbench mock without implementing viewport math manually.
        */}
       <ReactFlow
+        className="canvas-custom-cursor"
+        style={{ cursor: "url('/canvas-agent-cursor.svg?v=5') 7 5, auto" }}
         nodes={nodes}
         edges={[]}
         onNodesChange={onNodesChange}

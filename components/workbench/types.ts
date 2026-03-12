@@ -71,6 +71,17 @@ export interface VideoGenerationNodeData extends Record<string, unknown> {
   entryDelay?: number;
 }
 
+export interface GeneratingDocumentNodeData extends Record<string, unknown> {
+  title: string;
+  subtitle: string;
+  excerpt: string[];
+  previewFile: WorkFile;
+  onOpenPreview?: (file: WorkFile) => void;
+  progress: number;
+  eta: string;
+  entryDelay?: number;
+}
+
 export interface FolderNodeData extends Record<string, unknown> {
   title: string;
   filesCount: number;
@@ -84,6 +95,7 @@ export interface FolderNodeData extends Record<string, unknown> {
 export type WorkbenchNode =
   | Node<NoteNodeData, "note">
   | Node<DocumentNodeData, "document">
+  | Node<GeneratingDocumentNodeData, "document-generating">
   | Node<MediaNodeData, "media">
   | Node<VideoGenerationNodeData, "video-generation">
   | Node<FolderNodeData, "folder">;
