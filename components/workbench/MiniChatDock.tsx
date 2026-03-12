@@ -14,7 +14,7 @@ export function MiniChatDock({ onExpand }: MiniChatDockProps) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 18, scale: 0.98 }}
       transition={{ type: "spring", stiffness: 260, damping: 24 }}
-      className="pointer-events-auto absolute bottom-7 left-7 z-40 w-[min(560px,calc(100%-56px))]"
+      className="pointer-events-auto absolute bottom-7 left-4 z-40 w-[min(460px,calc(100%-32px))] xl:left-28 xl:w-[420px]"
     >
       <div className="flex items-center gap-2 rounded-[20px] border border-[#3d4453] bg-[#2c333f]/95 p-2 shadow-[0_16px_30px_rgba(15,23,42,0.34)] backdrop-blur-md">
         <button

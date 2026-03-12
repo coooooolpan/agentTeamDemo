@@ -8,6 +8,7 @@ import { AgentDetailPanel } from "./AgentDetailPanel";
 import { CanvasStage } from "./CanvasStage";
 import { LeftPanel } from "./LeftPanel";
 import { MiniChatDock } from "./MiniChatDock";
+import { SideTabRail } from "./SideTabRail";
 import type { ChatAgentCard, WorkFile } from "./types";
 
 const Agentation = dynamic(
@@ -43,22 +44,37 @@ export function AppShell() {
       ) : null}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_left_top,rgba(255,255,255,0.92),rgba(238,241,245,0.7)_30%,transparent_70%)]" />
 
-      {!isPanelMinimized ? (
-        <aside className="absolute inset-y-0 left-0 z-30 hidden w-[500px] p-4 xl:block">
-          <LeftPanel
-            isMinimized={isPanelMinimized}
-            onToggleMinimize={() => setIsPanelMinimized((prev) => !prev)}
-            onOpenAgentDetails={(agent) => {
-              setActiveFile(null);
-              setActiveAgent(agent);
-            }}
-          />
-        </aside>
+      <AnimatePresence initial={false}>
+        {!isPanelMinimized ? (
+          <motion.aside
+            initial={{ x: -28, opacity: 0.7 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -28, opacity: 0.7 }}
+            transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute inset-y-0 left-0 z-30 hidden w-[500px] p-4 xl:block"
+          >
+            <LeftPanel
+              isMinimized={isPanelMinimized}
+              onToggleMinimize={() => setIsPanelMinimized((prev) => !prev)}
+              onOpenAgentDetails={(agent) => {
+                setActiveFile(null);
+                setActiveAgent(agent);
+              }}
+            />
+          </motion.aside>
+        ) : null}
+      </AnimatePresence>
+
+      {isPanelMinimized ? (
+        <SideTabRail className="absolute inset-y-4 left-4 z-30 hidden xl:flex" />
       ) : null}
 
-      <main className={`relative h-full ${isPanelMinimized ? "xl:pl-0" : "xl:pl-[500px]"}`}>
+      <main
+        className={`relative h-full xl:transition-[padding-left] xl:duration-500 xl:ease-[cubic-bezier(0.22,1,0.36,1)] ${isPanelMinimized ? "xl:pl-0" : "xl:pl-[500px]"}`}
+      >
         <CanvasStage
           onOpenSidebar={() => setMobileSidebarOpen(true)}
+          isPanelMinimized={isPanelMinimized}
           activeFile={activeFile}
           onOpenFilePreview={(file) => {
             setActiveAgent(null);

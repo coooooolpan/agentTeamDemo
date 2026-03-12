@@ -9,10 +9,15 @@ import { cn } from "@/lib/utils";
 import { FileCard } from "./FileCard";
 import type { FolderNodeData } from "./types";
 
+function getEntryDelay(data: Record<string, unknown>) {
+  return typeof data.entryDelay === "number" ? data.entryDelay : 0;
+}
+
 export const FolderNode = memo(function FolderNode({
   data,
 }: NodeProps) {
   const nodeData = data as FolderNodeData;
+  const entryDelay = getEntryDelay(nodeData);
   const [expanded, setExpanded] = useState(false);
 
   const statusUi = useMemo(() => {
@@ -34,7 +39,12 @@ export const FolderNode = memo(function FolderNode({
   const StatusIcon = statusUi.icon;
 
   return (
-    <div className="relative w-[360px]">
+    <motion.div
+      initial={{ opacity: 0, y: 22, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: "spring", stiffness: 280, damping: 24, delay: entryDelay }}
+      className="relative w-[360px]"
+    >
       <AnimatePresence>
         {expanded ? (
           <motion.div
@@ -62,8 +72,11 @@ export const FolderNode = memo(function FolderNode({
 
       <motion.div
         layout
-        whileHover={{ y: -4 }}
-        transition={{ type: "spring", stiffness: 300, damping: 24 }}
+        whileHover={{
+          y: -4,
+          transition: { type: "spring", stiffness: 300, damping: 24, delay: 0 },
+        }}
+        transition={{ type: "spring", stiffness: 300, damping: 24, delay: 0 }}
         className="relative z-10 cursor-grab rounded-[22px] border border-[#e7ebf2] bg-white p-5 shadow-[0_18px_34px_rgba(15,23,42,0.12)] active:cursor-grabbing"
       >
         <button
@@ -93,6 +106,6 @@ export const FolderNode = memo(function FolderNode({
           </div>
         </button>
       </motion.div>
-    </div>
+    </motion.div>
   );
 });

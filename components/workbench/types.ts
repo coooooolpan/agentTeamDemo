@@ -38,6 +38,7 @@ export interface NoteNodeData extends Record<string, unknown> {
   title: string;
   checklist: string[];
   tag: AgentTag;
+  entryDelay?: number;
 }
 
 export interface DocumentNodeData extends Record<string, unknown> {
@@ -47,6 +48,7 @@ export interface DocumentNodeData extends Record<string, unknown> {
   tag: AgentTag;
   previewFile: WorkFile;
   onOpenPreview?: (file: WorkFile) => void;
+  entryDelay?: number;
 }
 
 export interface MediaNodeData extends Record<string, unknown> {
@@ -56,6 +58,17 @@ export interface MediaNodeData extends Record<string, unknown> {
   tag: AgentTag;
   previewFile: WorkFile;
   onOpenPreview?: (file: WorkFile) => void;
+  entryDelay?: number;
+}
+
+export interface VideoGenerationNodeData extends Record<string, unknown> {
+  title: string;
+  subtitle: string;
+  progress: number;
+  eta: string;
+  previewFile: WorkFile;
+  onOpenPreview?: (file: WorkFile) => void;
+  entryDelay?: number;
 }
 
 export interface FolderNodeData extends Record<string, unknown> {
@@ -65,10 +78,12 @@ export interface FolderNodeData extends Record<string, unknown> {
   status: "thinking" | "finished";
   files: WorkFile[];
   onOpenPreview?: (file: WorkFile) => void;
+  entryDelay?: number;
 }
 
 export type WorkbenchNode =
   | Node<NoteNodeData, "note">
   | Node<DocumentNodeData, "document">
   | Node<MediaNodeData, "media">
+  | Node<VideoGenerationNodeData, "video-generation">
   | Node<FolderNodeData, "folder">;

@@ -1,32 +1,31 @@
 "use client";
 
-import { memo, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
+  Check,
   ArrowUp,
   Box,
   BrainCircuit,
   CheckCircle2,
+  ChevronDown,
   CircleDashed,
   Cpu,
   Database,
   Clock3,
   Expand,
-  History,
-  Home,
   MessageCircle,
   Paperclip,
   Search,
   Sparkles,
-  SquarePlus,
   Terminal,
-  Layers,
   X,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { chatAgentCards, chatGalleryGradients, sideRailIcons, timelineEvents } from "./mock-data";
+import { chatAgentCards, chatGalleryGradients, timelineEvents } from "./mock-data";
+import { SideTabRail } from "./SideTabRail";
 import type { AgentColor, ChatAgentCard } from "./types";
 
 interface LeftPanelProps {
@@ -44,26 +43,6 @@ const agentDotScheme: Record<AgentColor, string> = {
   orange: "bg-[linear-gradient(135deg,#fde68a,#fdba74)]",
   green: "bg-[linear-gradient(135deg,#86efac,#67e8f9)]",
 };
-
-function SideRailIcon({ name }: { name: (typeof sideRailIcons)[number] }) {
-  if (name === "home") {
-    return <Home className="h-5 w-5" />;
-  }
-
-  if (name === "sparkles") {
-    return <Sparkles className="h-5 w-5" />;
-  }
-
-  if (name === "square-plus") {
-    return <SquarePlus className="h-5 w-5" />;
-  }
-
-  if (name === "layers") {
-    return <Layers className="h-5 w-5" />;
-  }
-
-  return <History className="h-5 w-5" />;
-}
 
 function EventIcon({ type }: { type: (typeof timelineEvents)[number]["type"] }) {
   if (type === "thinking") {
@@ -112,7 +91,9 @@ function SandboxStatus({
   );
 }
 
-const INTRO_ANIMATION_KEY = "agent-team-intro-played-v2";
+const DEFAULT_USER_PROMPT = "Generate a set of Gameboy-style pixel images from the picture.";
+const INITIAL_FLOW_TYPING_LEAD = 1180;
+const RESEND_FLOW_TYPING_LEAD = 620;
 
 const summaryFlow = [
   {
@@ -200,143 +181,159 @@ export const LeftPanel = memo(function LeftPanel({
   onToggleMinimize,
   onOpenAgentDetails,
 }: LeftPanelProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const [activeTab, setActiveTab] = useState<"chat" | "sandbox">("chat");
   const [showIntroTyping, setShowIntroTyping] = useState(false);
   const [visibleFlowIds, setVisibleFlowIds] = useState<string[]>([]);
   const [agentCue, setAgentCue] = useState<string | null>(null);
+  const [composerValue, setComposerValue] = useState(() => {
+    if (typeof window === "undefined") {
+      return "";
+    }
+
+    return new URLSearchParams(window.location.search).get("prompt")?.trim() ?? "";
+  });
+  const [activePromptText, setActivePromptText] = useState(() => {
+    if (typeof window === "undefined") {
+      return DEFAULT_USER_PROMPT;
+    }
+
+    const promptFromUrl = new URLSearchParams(window.location.search).get("prompt")?.trim();
+    return promptFromUrl || DEFAULT_USER_PROMPT;
+  });
+  const [selectedAgentId, setSelectedAgentId] = useState(chatAgentCards[0]?.id ?? "");
+  const [isAgentPickerOpen, setIsAgentPickerOpen] = useState(false);
+  const agentPickerRef = useRef<HTMLDivElement | null>(null);
+  const timersRef = useRef<number[]>([]);
+  const rafsRef = useRef<number[]>([]);
 
   const isHomeActive = pathname === "/home";
-  const isWorkbenchActive = pathname === "/";
+  const selectedAgent =
+    chatAgentCards.find((agent) => agent.id === selectedAgentId) ?? chatAgentCards[0];
+
+  const clearScheduledFlow = useCallback(() => {
+    timersRef.current.forEach((timer) => window.clearTimeout(timer));
+    rafsRef.current.forEach((raf) => window.cancelAnimationFrame(raf));
+    timersRef.current = [];
+    rafsRef.current = [];
+  }, []);
+
+  const scheduleFlowTimer = useCallback((delay: number, callback: () => void) => {
+    const timer = window.setTimeout(callback, delay);
+    timersRef.current.push(timer);
+  }, []);
+
+  const scheduleFlowRaf = useCallback((callback: () => void) => {
+    const raf = window.requestAnimationFrame(callback);
+    rafsRef.current.push(raf);
+  }, []);
+
+  const revealFlowImmediately = useCallback(() => {
+    scheduleFlowRaf(() => {
+      setShowIntroTyping(false);
+      setAgentCue(null);
+      setVisibleFlowIds(allFlowIds);
+    });
+  }, [scheduleFlowRaf]);
+
+  const runFlowSequence = useCallback(
+    (typingLead: number) => {
+      clearScheduledFlow();
+
+      scheduleFlowRaf(() => {
+        setShowIntroTyping(true);
+        setAgentCue(null);
+        setVisibleFlowIds([]);
+      });
+
+      let elapsed = typingLead;
+      scheduleFlowTimer(elapsed, () => setShowIntroTyping(false));
+
+      flowSteps.forEach((step) => {
+        elapsed += step.wait;
+
+        if (step.kind === "show") {
+          scheduleFlowTimer(elapsed, () => {
+            setVisibleFlowIds((prev) => (prev.includes(step.id) ? prev : [...prev, step.id]));
+          });
+        } else {
+          scheduleFlowTimer(elapsed, () => setAgentCue(step.label));
+          elapsed += step.hold;
+          scheduleFlowTimer(elapsed, () => setAgentCue(null));
+        }
+      });
+    },
+    [clearScheduledFlow, scheduleFlowRaf, scheduleFlowTimer],
+  );
 
   useEffect(() => {
-    const timers: number[] = [];
-    const rafs: number[] = [];
-
-    const schedule = (delay: number, callback: () => void) => {
-      const timer = window.setTimeout(callback, delay);
-      timers.push(timer);
-    };
-
-    const scheduleRaf = (callback: () => void) => {
-      const raf = window.requestAnimationFrame(callback);
-      rafs.push(raf);
-    };
-
-    const revealAll = () => {
-      scheduleRaf(() => {
-        setShowIntroTyping(false);
-        setAgentCue(null);
-        setVisibleFlowIds(allFlowIds);
-      });
-    };
-
     if (activeTab !== "chat") {
-      revealAll();
-      return () => {
-        timers.forEach((timer) => window.clearTimeout(timer));
-        rafs.forEach((raf) => window.cancelAnimationFrame(raf));
-      };
+      revealFlowImmediately();
+      return clearScheduledFlow;
     }
 
     if (pathname !== "/") {
-      revealAll();
-      return () => {
-        timers.forEach((timer) => window.clearTimeout(timer));
-        rafs.forEach((raf) => window.cancelAnimationFrame(raf));
-      };
+      revealFlowImmediately();
+      return clearScheduledFlow;
     }
 
-    const hasPlayed = window.sessionStorage.getItem(INTRO_ANIMATION_KEY) === "1";
+    runFlowSequence(INITIAL_FLOW_TYPING_LEAD);
+    return clearScheduledFlow;
+  }, [activeTab, clearScheduledFlow, pathname, revealFlowImmediately, runFlowSequence]);
 
-    if (hasPlayed) {
-      revealAll();
-      return () => {
-        timers.forEach((timer) => window.clearTimeout(timer));
-        rafs.forEach((raf) => window.cancelAnimationFrame(raf));
-      };
+  useEffect(() => {
+    if (!isAgentPickerOpen) {
+      return;
     }
 
-    scheduleRaf(() => {
-      setShowIntroTyping(true);
-      setAgentCue(null);
-      setVisibleFlowIds([]);
-    });
-
-    let elapsed = 1180;
-    schedule(elapsed, () => setShowIntroTyping(false));
-
-    flowSteps.forEach((step) => {
-      elapsed += step.wait;
-
-      if (step.kind === "show") {
-        schedule(elapsed, () => {
-          setVisibleFlowIds((prev) => (prev.includes(step.id) ? prev : [...prev, step.id]));
-        });
-      } else {
-        schedule(elapsed, () => setAgentCue(step.label));
-        elapsed += step.hold;
-        schedule(elapsed, () => setAgentCue(null));
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        agentPickerRef.current &&
+        !agentPickerRef.current.contains(event.target as Node)
+      ) {
+        setIsAgentPickerOpen(false);
       }
-    });
+    };
 
-    schedule(elapsed + 80, () => {
-      window.sessionStorage.setItem(INTRO_ANIMATION_KEY, "1");
-    });
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsAgentPickerOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("keydown", handleEsc);
 
     return () => {
-      timers.forEach((timer) => window.clearTimeout(timer));
-      rafs.forEach((raf) => window.cancelAnimationFrame(raf));
+      window.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("keydown", handleEsc);
     };
-  }, [pathname, activeTab]);
+  }, [isAgentPickerOpen]);
 
   const isVisible = (id: string) => visibleFlowIds.includes(id);
   const hasAnyTimelineItem = timelineEvents.some((event) => isVisible(event.id));
   const hasVisibleAgentCards = chatAgentFlowIds.some((id) => isVisible(id));
 
+  const handleSendPrompt = () => {
+    const normalizedPrompt = composerValue.trim();
+
+    if (!normalizedPrompt) {
+      return;
+    }
+
+    setActivePromptText(normalizedPrompt);
+
+    if (activeTab === "chat" && pathname === "/") {
+      runFlowSequence(RESEND_FLOW_TYPING_LEAD);
+      return;
+    }
+
+    revealFlowImmediately();
+  };
+
   return (
     <div className={cn("flex h-full", !isHomeActive && "gap-3")}>
-      {!isHomeActive ? (
-        <aside className="hidden w-[76px] flex-col items-center rounded-[999px] border border-[#e6e8ee] bg-[#f2f4f7] py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] sm:flex">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-white shadow-lg">
-            <span className="text-xs font-bold tracking-[0.14em]">AI</span>
-          </div>
-
-          <div className="flex w-full flex-1 flex-col items-center justify-center gap-3">
-            {sideRailIcons.map((item) => (
-              <button
-                type="button"
-                key={item}
-                onClick={() => {
-                  if (item === "home") {
-                    router.push("/home");
-                    return;
-                  }
-
-                  if (item === "sparkles") {
-                    router.push("/");
-                  }
-                }}
-                className={cn(
-                  "grid h-12 w-12 place-items-center rounded-full text-[#98a0af] transition",
-                  (item === "home" && isHomeActive) ||
-                    (item === "sparkles" && isWorkbenchActive)
-                    ? "bg-[#353b47] text-white shadow-[0_8px_20px_rgba(17,24,39,0.25)]"
-                    : "bg-[#eceff4] hover:bg-[#dfe4eb]",
-                )}
-                aria-label={item}
-              >
-                <SideRailIcon name={item} />
-              </button>
-            ))}
-          </div>
-
-          <div className="h-11 w-11 rounded-full bg-[linear-gradient(135deg,#fb923c,#0ea5e9)] p-[2px]">
-            <div className="h-full w-full rounded-full bg-white" />
-          </div>
-        </aside>
-      ) : null}
+      {!isHomeActive ? <SideTabRail className="hidden sm:flex" /> : null}
 
       <section className="relative flex min-w-0 flex-1 flex-col rounded-[30px] border border-[#e3e6ed] bg-[linear-gradient(180deg,#f9fafc_0%,#f6f7fa_100%)] p-4 shadow-[0_22px_34px_rgba(15,23,42,0.09)]">
         <header className="flex items-start justify-between">
@@ -480,7 +477,7 @@ export const LeftPanel = memo(function LeftPanel({
                     transition={{ type: "spring", stiffness: 240, damping: 22 }}
                     className="mt-3 rounded-3xl bg-[#eceef2] p-3 text-[14px] font-semibold leading-6 text-[#252b35] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]"
                   >
-                    Generate a set of Gameboy-style pixel images from the picture.
+                    {activePromptText}
                   </motion.div>
                 ) : null}
               </AnimatePresence>
@@ -719,26 +716,115 @@ export const LeftPanel = memo(function LeftPanel({
         </div>
 
         <footer className="pt-4">
-          <div className="flex items-center gap-2 rounded-[18px] border border-[#3d4453] bg-[#2c333f] p-2 shadow-[0_14px_26px_rgba(15,23,42,0.3)]">
-            <button
-              type="button"
-              className="grid h-9 w-9 place-items-center rounded-full text-[#c5cbd7] hover:bg-white/10"
-              aria-label="Attach"
-            >
-              <Paperclip className="h-4 w-4" />
-            </button>
-            <input
-              className="h-10 flex-1 border-none bg-transparent text-base text-[#f3f4f6] placeholder:text-[#9099a9] outline-none"
-              placeholder="Ask me anything..."
-              aria-label="Ask me anything"
-            />
-            <button
-              type="button"
-              className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#171923]"
-              aria-label="Send"
-            >
-              <ArrowUp className="h-4 w-4" />
-            </button>
+          <div ref={agentPickerRef} className="relative">
+            <AnimatePresence>
+              {isAgentPickerOpen ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 280, damping: 24 }}
+                  className="absolute bottom-[calc(100%+10px)] left-0 z-50 w-[260px] rounded-2xl border border-[#e3e8f1] bg-white p-2 shadow-[0_16px_30px_rgba(15,23,42,0.16)]"
+                >
+                  <p className="px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8b95a7]">
+                    Agent Role
+                  </p>
+                  <div className="space-y-1">
+                    {chatAgentCards.map((agent) => (
+                      <button
+                        key={agent.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedAgentId(agent.id);
+                          setIsAgentPickerOpen(false);
+                        }}
+                        className={cn(
+                          "flex w-full items-start gap-2 rounded-xl px-2 py-2 text-left transition",
+                          selectedAgentId === agent.id
+                            ? "bg-[#eef4ff]"
+                            : "hover:bg-[#f4f7fc]",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "mt-0.5 h-6 w-6 shrink-0 rounded-full border border-white/70 shadow-[0_2px_8px_rgba(15,23,42,0.12)]",
+                            agentDotScheme[agent.color],
+                          )}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-[#1b2332]">
+                            {agent.name}
+                          </span>
+                          <span className="block truncate text-xs text-[#7a869b]">
+                            {agent.summary}
+                          </span>
+                        </span>
+                        {selectedAgentId === agent.id ? (
+                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#3a64d2]" />
+                        ) : null}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+
+            <div className="flex items-center gap-1.5 rounded-[18px] border border-[#3d4453] bg-[#2c333f] p-1.5 shadow-[0_14px_26px_rgba(15,23,42,0.3)]">
+              <button
+                type="button"
+                onClick={() => setIsAgentPickerOpen((prev) => !prev)}
+                className="relative inline-flex h-9 w-11 items-center justify-center rounded-full bg-white/12 text-[#d2d8e3] transition hover:bg-white/18"
+                aria-label="Choose agent role"
+                aria-expanded={isAgentPickerOpen}
+              >
+                <span
+                  className={cn(
+                    "h-6 w-6 rounded-full border border-white/60",
+                    selectedAgent ? agentDotScheme[selectedAgent.color] : "bg-[#cbd5e1]",
+                  )}
+                />
+                <span className="sr-only">
+                  {selectedAgent ? `Current agent: ${selectedAgent.name}` : "Select Agent"}
+                </span>
+                <span className="pointer-events-none absolute -bottom-0.5 -right-0.5 grid h-4 w-4 place-items-center rounded-full border border-[#677084] bg-[#3b4352]">
+                  <ChevronDown
+                    className={cn(
+                      "h-2.5 w-2.5 transition-transform",
+                      isAgentPickerOpen && "rotate-180",
+                    )}
+                  />
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className="grid h-9 w-9 place-items-center rounded-full text-[#c5cbd7] hover:bg-white/10"
+                aria-label="Attach"
+              >
+                <Paperclip className="h-4 w-4" />
+              </button>
+              <input
+                value={composerValue}
+                onChange={(event) => setComposerValue(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    handleSendPrompt();
+                  }
+                }}
+                className="h-10 flex-1 border-none bg-transparent text-base text-[#f3f4f6] placeholder:text-[#9099a9] outline-none"
+                placeholder="Ask me anything..."
+                aria-label="Ask me anything"
+              />
+              <button
+                type="button"
+                onClick={handleSendPrompt}
+                className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#171923]"
+                aria-label="Send"
+              >
+                <ArrowUp className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </footer>
       </section>

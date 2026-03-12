@@ -6,6 +6,7 @@ import type {
   NoteNodeData,
   DocumentNodeData,
   MediaNodeData,
+  VideoGenerationNodeData,
   FolderNodeData,
 } from "./types";
 
@@ -196,7 +197,7 @@ export function buildCanvasNodes(
     {
       id: "note-1",
       type: "note",
-      position: { x: 240, y: 96 },
+      position: { x: 170, y: 86 },
       data: {
         title: "Create a complete marketing asset pack",
         checklist: [
@@ -206,13 +207,14 @@ export function buildCanvasNodes(
           "Output: USP list, visual direction, copy hooks",
         ],
         tag: tag("Brand Copywriter", "green", "right"),
+        entryDelay: 0.02,
       } satisfies NoteNodeData,
       draggable: true,
     },
     {
       id: "doc-1",
       type: "document",
-      position: { x: 558, y: 78 },
+      position: { x: 500, y: 70 },
       data: {
         title: "Steve Jobs' Philosophy",
         subtitle: "Products and Life",
@@ -224,13 +226,14 @@ export function buildCanvasNodes(
         tag: tag("Content Auditor", "orange", "bottom"),
         previewFile: marketReport,
         onOpenPreview,
+        entryDelay: 0.08,
       } satisfies DocumentNodeData,
       draggable: true,
     },
     {
       id: "doc-2",
       type: "document",
-      position: { x: 824, y: 74 },
+      position: { x: 760, y: 70 },
       data: {
         title: "Product Research Brief",
         subtitle: "A Sample Research Document",
@@ -242,13 +245,14 @@ export function buildCanvasNodes(
         tag: tag("Market Scout", "purple", "right"),
         previewFile: campaignMatrix,
         onOpenPreview,
+        entryDelay: 0.12,
       } satisfies DocumentNodeData,
       draggable: true,
     },
     {
       id: "media-1",
       type: "media",
-      position: { x: 102, y: 364 },
+      position: { x: 86, y: 330 },
       data: {
         title: "Campaign Visual Sheet",
         kindLabel: "Image Pack",
@@ -257,13 +261,14 @@ export function buildCanvasNodes(
         tag: tag("Campaign Designer", "blue", "bottom"),
         previewFile: visualConcept,
         onOpenPreview,
+        entryDelay: 0.18,
       } satisfies MediaNodeData,
       draggable: true,
     },
     {
       id: "media-2",
       type: "media",
-      position: { x: 714, y: 354 },
+      position: { x: 576, y: 330 },
       data: {
         title: "Function to Feeling Reel",
         kindLabel: "Video Draft",
@@ -272,13 +277,29 @@ export function buildCanvasNodes(
         tag: tag("Video Producer", "red", "bottom"),
         previewFile: promoStoryboard,
         onOpenPreview,
+        entryDelay: 0.24,
       } satisfies MediaNodeData,
+      draggable: true,
+    },
+    {
+      id: "video-generation-1",
+      type: "video-generation",
+      position: { x: 1068, y: 330 },
+      data: {
+        title: "Poster Assets + Promo Video Generation",
+        subtitle: "5 agents are collaborating around this draft on the infinite canvas.",
+        progress: 68,
+        eta: "ETA 00:42",
+        previewFile: promoStoryboard,
+        onOpenPreview,
+        entryDelay: 0.3,
+      } satisfies VideoGenerationNodeData,
       draggable: true,
     },
     {
       id: "folder-1",
       type: "folder",
-      position: { x: 116, y: 668 },
+      position: { x: 110, y: 670 },
       data: {
         title: "Poster Assets + Promo Video Generation",
         filesCount: 12,
@@ -286,13 +307,14 @@ export function buildCanvasNodes(
         status: "thinking",
         files: folderOneFiles,
         onOpenPreview,
+        entryDelay: 0.38,
       } satisfies FolderNodeData,
       draggable: true,
     },
     {
       id: "folder-2",
       type: "folder",
-      position: { x: 586, y: 668 },
+      position: { x: 600, y: 670 },
       data: {
         title: "Poster Assets + Promo Video (v2 Iteration)",
         filesCount: 12,
@@ -300,13 +322,14 @@ export function buildCanvasNodes(
         status: "finished",
         files: folderTwoFiles,
         onOpenPreview,
+        entryDelay: 0.44,
       } satisfies FolderNodeData,
       draggable: true,
     },
     {
       id: "folder-3",
       type: "folder",
-      position: { x: 1024, y: 668 },
+      position: { x: 1110, y: 670 },
       data: {
         title: "Demo Product (v1 Draft)",
         filesCount: 12,
@@ -314,6 +337,7 @@ export function buildCanvasNodes(
         status: "finished",
         files: folderThreeFiles,
         onOpenPreview,
+        entryDelay: 0.5,
       } satisfies FolderNodeData,
       draggable: true,
     },

@@ -61,19 +61,12 @@ h6 {
 }
 
 .chat-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(132, 142, 160, 0.22) transparent;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .chat-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-
-.chat-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.chat-scrollbar::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(132, 142, 160, 0.22);
+  display: none;
+  width: 0;
+  height: 0;
 }

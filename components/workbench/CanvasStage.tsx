@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -22,13 +22,19 @@ import {
 } from "lucide-react";
 
 import { buildCanvasNodes } from "./mock-data";
-import { DocumentNode, MediaNode, TaskNoteNode } from "./NodeCard";
+import {
+  DocumentNode,
+  MediaNode,
+  TaskNoteNode,
+  VideoGenerationNode,
+} from "./NodeCard";
 import { FolderNode } from "./FolderNode";
 import { Toolbar } from "./Toolbar";
 import type { WorkFile, WorkbenchNode } from "./types";
 
 interface CanvasStageProps {
   onOpenSidebar: () => void;
+  isPanelMinimized: boolean;
   activeFile: WorkFile | null;
   onOpenFilePreview: (file: WorkFile) => void;
   onCloseFilePreview: () => void;
@@ -39,6 +45,7 @@ const nodeTypes: NodeTypes = {
   note: TaskNoteNode,
   document: DocumentNode,
   media: MediaNode,
+  "video-generation": VideoGenerationNode,
   folder: FolderNode,
 };
 
@@ -120,6 +127,7 @@ function PreviewPanel({
 
 function CanvasContent({
   onOpenSidebar,
+  isPanelMinimized,
   activeFile,
   onOpenFilePreview,
   onCloseFilePreview,
@@ -136,17 +144,32 @@ function CanvasContent({
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkbenchNode>(initialNodes);
   const { fitView, setCenter } = useReactFlow<WorkbenchNode>();
   const { zoom } = useViewport();
+  const hasAnimatedLayoutTransition = useRef(false);
+  const initialPadding = 0.3;
   const zoomForDotScale = Math.max(zoom, 1);
   const backgroundDotGap = 48 / zoomForDotScale;
   const backgroundDotSize = 2.2 / zoomForDotScale;
 
   useEffect(() => {
     const animation = requestAnimationFrame(() => {
-      fitView({ padding: 0.24, duration: 0 });
+      fitView({ padding: initialPadding, duration: 0 });
     });
 
     return () => cancelAnimationFrame(animation);
-  }, [fitView]);
+  }, [fitView, initialPadding]);
+
+  useEffect(() => {
+    if (!hasAnimatedLayoutTransition.current) {
+      hasAnimatedLayoutTransition.current = true;
+      return;
+    }
+
+    const animation = requestAnimationFrame(() => {
+      fitView({ padding: initialPadding, duration: 480 });
+    });
+
+    return () => cancelAnimationFrame(animation);
+  }, [fitView, initialPadding, isPanelMinimized]);
 
   const onNodeDoubleClick = useCallback(
     (_event: React.MouseEvent, node: WorkbenchNode) => {
@@ -229,7 +252,7 @@ function CanvasContent({
           setNodes((prev) => prev.map((node) => ({ ...node })));
         }}
         onCenter={() => {
-          fitView({ padding: 0.24, duration: 380 });
+          fitView({ padding: initialPadding, duration: 380 });
         }}
       />
     </div>
@@ -238,6 +261,7 @@ function CanvasContent({
 
 export function CanvasStage({
   onOpenSidebar,
+  isPanelMinimized,
   activeFile,
   onOpenFilePreview,
   onCloseFilePreview,
@@ -247,6 +271,7 @@ export function CanvasStage({
     <ReactFlowProvider>
       <CanvasContent
         onOpenSidebar={onOpenSidebar}
+        isPanelMinimized={isPanelMinimized}
         activeFile={activeFile}
         onOpenFilePreview={onOpenFilePreview}
         onCloseFilePreview={onCloseFilePreview}
