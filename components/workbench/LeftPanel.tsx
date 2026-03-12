@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowUp,
   Box,
@@ -65,6 +66,12 @@ export const LeftPanel = memo(function LeftPanel({
   mobile = false,
   onClose,
 }: LeftPanelProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const isHomeActive = pathname === "/home";
+  const isWorkbenchActive = pathname === "/";
+
   return (
     <div className="flex h-full gap-3">
       <aside className="hidden w-[76px] flex-col items-center rounded-[30px] border border-[#e6e8ee] bg-[#f2f4f7] py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] sm:flex">
@@ -77,9 +84,20 @@ export const LeftPanel = memo(function LeftPanel({
             <button
               type="button"
               key={item}
+              onClick={() => {
+                if (item === "home") {
+                  router.push("/home");
+                  return;
+                }
+
+                if (item === "sparkles") {
+                  router.push("/");
+                }
+              }}
               className={cn(
                 "grid h-12 w-12 place-items-center rounded-full text-[#98a0af] transition",
-                item === "sparkles"
+                (item === "home" && isHomeActive) ||
+                  (item === "sparkles" && isWorkbenchActive)
                   ? "bg-[#353b47] text-white shadow-[0_8px_20px_rgba(17,24,39,0.25)]"
                   : "bg-[#eceff4] hover:bg-[#dfe4eb]",
               )}
@@ -145,8 +163,8 @@ export const LeftPanel = memo(function LeftPanel({
                 <div className="h-9 w-9 rounded-full bg-[linear-gradient(135deg,#dbeafe,#f5d0fe)] ring-2 ring-white" />
               </div>
               <div>
-                <h2 className="text-[30px] font-bold leading-8 text-[#141821]">Agent Team</h2>
-                <p className="mt-1 text-sm text-[#9aa2b0]">Updated 3 minutes ago</p>
+                <h2 className="text-[20px] font-bold leading-8 text-[#141821]">Agent Team</h2>
+                <p className="mt-1 text-xs text-[#9aa2b0]">Updated 3 minutes ago</p>
               </div>
             </div>
 

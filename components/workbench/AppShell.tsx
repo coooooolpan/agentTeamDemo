@@ -1,16 +1,33 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 
 import { CanvasStage } from "./CanvasStage";
 import { LeftPanel } from "./LeftPanel";
+
+const Agentation = dynamic(
+  () => import("agentation").then((mod) => mod.Agentation),
+  { ssr: false },
+);
+const UnicornScene = dynamic(() => import("unicornstudio-react"), { ssr: false });
 
 export function AppShell() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
     <div className="relative h-screen overflow-hidden bg-[#eef1f5]">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <UnicornScene
+          projectId="1QGYeRxCGg5uq6vwZwSp"
+          width="100%"
+          height="100%"
+          scale={1}
+          dpi={1.5}
+          sdkUrl="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@2.1.3/dist/unicornStudio.umd.js"
+        />
+      </div>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_left_top,rgba(255,255,255,0.92),rgba(238,241,245,0.7)_30%,transparent_70%)]" />
 
       <aside className="absolute inset-y-0 left-0 z-30 hidden w-[440px] p-4 xl:block">
@@ -45,6 +62,8 @@ export function AppShell() {
           </>
         ) : null}
       </AnimatePresence>
+
+      {process.env.NODE_ENV !== "production" ? <Agentation /> : null}
     </div>
   );
 }

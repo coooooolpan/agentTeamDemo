@@ -84,7 +84,7 @@ export const TaskNoteNode = memo(function TaskNoteNode({
   return (
     <motion.div
       layout
-      className="relative w-[268px] rounded-[20px] border border-[#9fd7b8] bg-[#b8f2cc] p-5 shadow-[0_20px_30px_rgba(22,163,74,0.14)]"
+      className="relative w-[268px] cursor-grab rounded-[20px] border border-[#9fd7b8] bg-[#b8f2cc] p-5 shadow-[0_20px_30px_rgba(22,163,74,0.14)] active:cursor-grabbing"
       whileHover={{ y: -4 }}
       transition={{ type: "spring", stiffness: 280, damping: 24 }}
     >
@@ -120,7 +120,7 @@ export const DocumentNode = memo(function DocumentNode({
   return (
     <motion.button
       type="button"
-      className="nodrag nopan relative w-[200px] rounded-[20px] border border-[#eceef2] bg-white p-4 text-left shadow-[0_18px_32px_rgba(15,23,42,0.12)]"
+      className="relative w-[200px] cursor-grab rounded-[20px] border border-[#eceef2] bg-white p-4 text-left shadow-[0_18px_32px_rgba(15,23,42,0.12)] active:cursor-grabbing"
       whileHover={{ y: -5 }}
       transition={{ type: "spring", stiffness: 300, damping: 24 }}
       onClick={handleClick}
@@ -165,7 +165,7 @@ export const MediaNode = memo(function MediaNode({
     <motion.button
       type="button"
       onClick={handleClick}
-      className="nodrag nopan relative w-[430px] rounded-[24px] border border-[#e7eaf0] bg-white p-4 text-left shadow-[0_20px_35px_rgba(15,23,42,0.08)]"
+      className="relative w-[430px] cursor-grab rounded-[24px] border border-[#e7eaf0] bg-white p-4 text-left shadow-[0_20px_35px_rgba(15,23,42,0.08)] active:cursor-grabbing"
       whileHover={{ y: -5 }}
       transition={{ type: "spring", stiffness: 300, damping: 24 }}
     >

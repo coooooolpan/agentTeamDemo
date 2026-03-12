@@ -64,11 +64,11 @@ export const FolderNode = memo(function FolderNode({
         layout
         whileHover={{ y: -4 }}
         transition={{ type: "spring", stiffness: 300, damping: 24 }}
-        className="relative z-10 rounded-[22px] border border-[#e7ebf2] bg-white p-5 shadow-[0_18px_34px_rgba(15,23,42,0.12)]"
+        className="relative z-10 cursor-grab rounded-[22px] border border-[#e7ebf2] bg-white p-5 shadow-[0_18px_34px_rgba(15,23,42,0.12)] active:cursor-grabbing"
       >
         <button
           type="button"
-          className="nodrag nopan w-full text-left"
+          className="w-full cursor-grab text-left active:cursor-grabbing"
           onClick={(event) => {
             event.stopPropagation();
             setExpanded((prev) => !prev);
