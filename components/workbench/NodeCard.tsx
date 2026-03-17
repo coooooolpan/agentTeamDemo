@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useMemo, useState } from "react";
 import type { NodeProps } from "@xyflow/react";
-import { CheckCircle2, Circle, CirclePlay, FileText } from "lucide-react";
+import { CheckCircle2, Circle, CirclePlay, CopyPlus, FileText } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 import type {
@@ -10,6 +10,7 @@ import type {
   GeneratingDocumentNodeData,
   MediaNodeData,
   NoteNodeData,
+  PipelineStepNodeData,
   VideoGenerationNodeData,
 } from "./types";
 
@@ -116,6 +117,76 @@ export const TaskNoteNode = memo(function TaskNoteNode({
         {Math.min(completedCount, checklistLength)}/{checklistLength} tasks completed
       </motion.div>
     </motion.div>
+  );
+});
+
+export const PipelineStepNode = memo(function PipelineStepNode({
+  data,
+}: NodeProps) {
+  const nodeData = data as PipelineStepNodeData;
+  const boardGap = 20;
+  const boards = nodeData.boards ?? [];
+  const boardWidth =
+    boards.length > 0
+      ? (nodeData.width - boardGap * (boards.length - 1)) / boards.length
+      : nodeData.width;
+
+  return (
+    <div
+      className="nodrag nopan pointer-events-none relative"
+      style={{ width: nodeData.width, height: nodeData.height }}
+    >
+      <div className="absolute -left-10 top-6 flex h-7 w-7 items-center justify-center rounded-full border border-[#e5e9f1] bg-white/96 text-[11px] font-bold text-[#7d8799] shadow-[0_10px_18px_rgba(15,23,42,0.08)]">
+        {nodeData.step}
+      </div>
+      <div className="absolute -top-4 left-2 inline-flex items-center gap-2 rounded-full border border-[#e6ebf4] bg-white/95 px-3 py-1 text-[11px] font-semibold text-[#5f6b82] shadow-[0_8px_16px_rgba(15,23,42,0.08)]">
+        {nodeData.title}
+      </div>
+      {nodeData.parallelLabel ? (
+        <div className="absolute -top-4 right-2 inline-flex items-center rounded-full border border-[#d7ecff] bg-[#eef7ff] px-2.5 py-1 text-[10px] font-semibold text-[#3f78b3]">
+          {nodeData.parallelLabel}
+        </div>
+      ) : null}
+      <p className="absolute left-4 top-8 text-[12px] font-medium text-[#9aa5b8]">
+        {nodeData.subtitle}
+      </p>
+
+      {boards.length > 0 ? (
+        <div
+          className="absolute inset-x-0 bottom-0 top-16 flex items-stretch"
+          style={{ gap: boardGap }}
+        >
+          {boards.map((board) => {
+            const slotGap = 10;
+            const slotWidth =
+              board.slots > 0 ? (boardWidth - 20 - slotGap * (board.slots - 1)) / board.slots : boardWidth - 20;
+            const slotHeight = board.slotHeight ?? 142;
+            return (
+              <div
+                key={board.id}
+                className="rounded-[24px] border border-dashed border-[#d8dde7] bg-white/35 px-2.5 pb-2.5 pt-6 backdrop-blur-[1.5px]"
+                style={{ width: boardWidth }}
+              >
+                {board.title ? (
+                  <p className="mb-2 text-[12px] font-medium text-[#a0a8b8]">{board.title}</p>
+                ) : null}
+                <div className="flex items-center" style={{ gap: slotGap }}>
+                  {Array.from({ length: board.slots }).map((_, slotIndex) => (
+                    <div
+                      key={`${board.id}-slot-${slotIndex}`}
+                      className="rounded-[18px] border border-[#dce4ef] bg-[linear-gradient(180deg,#dce8f8,#d2e1f4)]/85"
+                      style={{ width: slotWidth, height: slotHeight }}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="absolute inset-x-0 bottom-0 top-16 rounded-[28px] border border-dashed border-[#d8dde7] bg-white/30 backdrop-blur-[1.5px]" />
+      )}
+    </div>
   );
 });
 
@@ -376,40 +447,76 @@ export const MediaNode = memo(function MediaNode({
   const nodeData = data as MediaNodeData;
   const entryDelay = getEntryDelay(nodeData);
   const nodeOpacity = nodeData.isDimmed ? 0.3 : 1;
+  const compact = nodeData.variant === "compact";
+  const cardWidth = compact ? 198 : 430;
+  const previewHeight = compact ? 142 : 136;
 
   const handleClick = () => {
     nodeData.onOpenPreview?.(nodeData.previewFile);
   };
 
   return (
-    <motion.button
-      type="button"
+    <motion.div
+      role="button"
+      tabIndex={0}
       onClick={handleClick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          handleClick();
+        }
+      }}
       initial={{ opacity: 0, y: 20, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      className="relative w-[430px] cursor-grab rounded-[24px] border border-[#e7eaf0] bg-white p-4 text-left shadow-[0_20px_35px_rgba(15,23,42,0.08)] transition-opacity duration-300 active:cursor-grabbing"
-      style={{ opacity: nodeOpacity }}
+      className={`relative cursor-grab rounded-[24px] border border-[#e7eaf0] bg-white text-left shadow-[0_20px_35px_rgba(15,23,42,0.08)] transition-opacity duration-300 active:cursor-grabbing ${
+        compact ? "p-2.5" : "p-4"
+      }`}
+      style={{ opacity: nodeOpacity, width: cardWidth }}
       whileHover={{
         y: -5,
         transition: { type: "spring", stiffness: 300, damping: 24, delay: 0 },
       }}
       transition={{ type: "spring", stiffness: 300, damping: 24, delay: entryDelay }}
     >
+      {nodeData.duplicateable ? (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            nodeData.onDuplicate?.();
+          }}
+          className="absolute right-3 top-3 z-30 grid h-7 w-7 place-items-center rounded-full border border-[#dfe4ee] bg-white/95 text-[#5f6b7f] shadow-[0_8px_16px_rgba(15,23,42,0.12)] transition hover:bg-[#f3f6fb]"
+          aria-label="Duplicate generated asset"
+        >
+          <CopyPlus className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
       <div
-        className="relative h-[136px] overflow-hidden rounded-[18px] border border-white/60"
-        style={{ backgroundImage: nodeData.gradient }}
+        className="relative overflow-hidden rounded-[18px] border border-white/60"
+        style={{ height: previewHeight, backgroundImage: nodeData.gradient }}
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.7),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(255,255,255,0.3),transparent_35%)]" />
         <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-white">
           <CirclePlay className="h-3.5 w-3.5" />
-          {nodeData.kindLabel}
+          {compact ? "Asset" : nodeData.kindLabel}
         </div>
       </div>
-      <div className="mt-2.5 flex items-center justify-between text-xs text-[#7e8798]">
-        <div className="font-semibold text-[#202733]">{nodeData.title}</div>
-        <FileText className="h-4 w-4" />
-      </div>
-    </motion.button>
+      {compact ? (
+        <div className="mt-2 px-0.5 text-[11px] font-semibold text-[#30384a]">
+          {nodeData.title}
+        </div>
+      ) : (
+        <div className="mt-2.5 flex items-center justify-between text-xs text-[#7e8798]">
+          <div className="font-semibold text-[#202733]">{nodeData.title}</div>
+          <FileText className="h-4 w-4" />
+        </div>
+      )}
+      {nodeData.duplicateable ? (
+        <div className={`inline-flex items-center rounded-full bg-[#eef5ff] px-2 py-1 text-[10px] font-semibold text-[#4a73a8] ${compact ? "mt-1.5" : "mt-2"}`}>
+          Drag or copy to any canvas area
+        </div>
+      ) : null}
+    </motion.div>
   );
 });
 
@@ -569,6 +676,9 @@ export const VideoGenerationNode = memo(function VideoGenerationNode({
   const entryDelay = getEntryDelay(nodeData);
   const nodeOpacity = nodeData.isDimmed ? 0.3 : 1;
   const reduceMotion = useReducedMotion();
+  const compact = nodeData.variant === "compact";
+  const cardWidth = compact ? 198 : 430;
+  const previewHeight = compact ? 142 : 136;
   const [activeCursorIds, setActiveCursorIds] = useState<string[]>([
     agentCursorSequence[0].id,
   ]);
@@ -611,35 +721,72 @@ export const VideoGenerationNode = memo(function VideoGenerationNode({
   const visibleCursorSet = useMemo(
     () =>
       new Set(
-        reduceMotion ? [agentCursorSequence[0].id] : Array.from(activeCursorIds),
+        compact
+          ? []
+          : reduceMotion
+            ? [agentCursorSequence[0].id]
+            : Array.from(activeCursorIds),
       ),
-    [activeCursorIds, reduceMotion],
+    [activeCursorIds, compact, reduceMotion],
   );
 
   return (
-    <div className="relative w-[430px] transition-opacity duration-300" style={{ opacity: nodeOpacity }}>
-      <AnimatePresence initial={false}>
-        {agentCursorSequence
-          .filter((cursor) => visibleCursorSet.has(cursor.id))
-          .map((cursor) => (
-            <AgentCursor key={cursor.id} cursor={cursor} reduceMotion={!!reduceMotion} />
-          ))}
-      </AnimatePresence>
+    <div className="relative transition-opacity duration-300" style={{ opacity: nodeOpacity, width: cardWidth }}>
+      {!compact ? (
+        <AnimatePresence initial={false}>
+          {agentCursorSequence
+            .filter((cursor) => visibleCursorSet.has(cursor.id))
+            .map((cursor) => (
+              <AgentCursor key={cursor.id} cursor={cursor} reduceMotion={!!reduceMotion} />
+            ))}
+        </AnimatePresence>
+      ) : (
+        <div
+          className="pointer-events-none absolute -top-4 right-2 z-30 rounded-full px-2.5 py-1 text-[10px] font-semibold text-white shadow-[0_10px_16px_rgba(15,23,42,0.18)]"
+          style={{ backgroundColor: nodeData.compactAgentColor ?? "#fd9732" }}
+        >
+          {nodeData.compactAgentLabel ?? "Content Auditor"}
+        </div>
+      )}
 
-      <motion.button
-        type="button"
+      <motion.div
+        role="button"
+        tabIndex={0}
         onClick={handleClick}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            handleClick();
+          }
+        }}
         initial={{ opacity: 0, y: 20, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="relative z-20 w-[430px] cursor-grab rounded-[24px] border border-[#e7eaf0] bg-white p-4 text-left shadow-[0_20px_35px_rgba(15,23,42,0.08)] active:cursor-grabbing"
+        className={`relative z-20 cursor-grab rounded-[24px] border border-[#e7eaf0] bg-white text-left shadow-[0_20px_35px_rgba(15,23,42,0.08)] active:cursor-grabbing ${
+          compact ? "p-2.5" : "p-4"
+        }`}
+        style={{ width: cardWidth }}
         whileHover={{
           y: -4,
           transition: { type: "spring", stiffness: 300, damping: 24, delay: 0 },
         }}
         transition={{ type: "spring", stiffness: 300, damping: 24, delay: entryDelay }}
       >
+        {nodeData.duplicateable ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              nodeData.onDuplicate?.();
+            }}
+            className="absolute right-3 top-3 z-30 grid h-7 w-7 place-items-center rounded-full border border-[#dfe4ee] bg-white/95 text-[#5f6b7f] shadow-[0_8px_16px_rgba(15,23,42,0.12)] transition hover:bg-[#f3f6fb]"
+            aria-label="Duplicate generated video"
+          >
+            <CopyPlus className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
         <div
-          className="relative h-[136px] overflow-hidden rounded-[18px] border border-white/60"
+          className="relative overflow-hidden rounded-[18px] border border-white/60"
+          style={{ height: previewHeight }}
         >
           <motion.div
             className="absolute inset-0"
@@ -669,12 +816,19 @@ export const VideoGenerationNode = memo(function VideoGenerationNode({
         </div>
         <div className="mt-2.5 flex items-center justify-between text-xs text-[#7e8798]">
           <div>
-            <p className="text-[11px] text-[#8b93a2]">{nodeData.eta}</p>
-            <div className="font-semibold text-[#202733]">{nodeData.title}</div>
+            {!compact ? <p className="text-[11px] text-[#8b93a2]">{nodeData.eta}</p> : null}
+            <div className={`font-semibold text-[#202733] ${compact ? "text-[11px] leading-4" : ""}`}>
+              {nodeData.title}
+            </div>
           </div>
-          <FileText className="h-4 w-4" />
+          {!compact ? <FileText className="h-4 w-4" /> : null}
         </div>
-      </motion.button>
+        {nodeData.duplicateable ? (
+          <div className={`inline-flex items-center rounded-full bg-[#eef5ff] px-2 py-1 text-[10px] font-semibold text-[#4a73a8] ${compact ? "mt-1.5" : "mt-2"}`}>
+            Drag or copy to storyboard space
+          </div>
+        ) : null}
+      </motion.div>
     </div>
   );
 });

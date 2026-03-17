@@ -1,5 +1,7 @@
 import type { Node } from "@xyflow/react";
 
+export type DemoMode = "A" | "B";
+
 export type AgentColor = "red" | "purple" | "blue" | "orange" | "green";
 
 export type AgentPlacement = "right" | "bottom" | "top-right";
@@ -60,6 +62,9 @@ export interface MediaNodeData extends Record<string, unknown> {
   tag: AgentTag;
   previewFile: WorkFile;
   onOpenPreview?: (file: WorkFile) => void;
+  duplicateable?: boolean;
+  onDuplicate?: () => void;
+  variant?: "default" | "compact";
   entryDelay?: number;
   isDimmed?: boolean;
 }
@@ -71,6 +76,11 @@ export interface VideoGenerationNodeData extends Record<string, unknown> {
   eta: string;
   previewFile: WorkFile;
   onOpenPreview?: (file: WorkFile) => void;
+  duplicateable?: boolean;
+  onDuplicate?: () => void;
+  variant?: "default" | "compact";
+  compactAgentLabel?: string;
+  compactAgentColor?: string;
   entryDelay?: number;
   isDimmed?: boolean;
 }
@@ -85,6 +95,21 @@ export interface GeneratingDocumentNodeData extends Record<string, unknown> {
   eta: string;
   entryDelay?: number;
   isDimmed?: boolean;
+}
+
+export interface PipelineStepNodeData extends Record<string, unknown> {
+  step: number;
+  title: string;
+  subtitle: string;
+  parallelLabel?: string;
+  width: number;
+  height: number;
+  boards?: Array<{
+    id: string;
+    title?: string;
+    slots: number;
+    slotHeight?: number;
+  }>;
 }
 
 export interface FolderNodeData extends Record<string, unknown> {
@@ -102,6 +127,7 @@ export interface FolderNodeData extends Record<string, unknown> {
 
 export type WorkbenchNode =
   | Node<NoteNodeData, "note">
+  | Node<PipelineStepNodeData, "pipeline-step">
   | Node<DocumentNodeData, "document">
   | Node<GeneratingDocumentNodeData, "document-generating">
   | Node<MediaNodeData, "media">

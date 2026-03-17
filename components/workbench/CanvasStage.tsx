@@ -26,23 +26,37 @@ import {
   DocumentNode,
   GeneratingDocumentNode,
   MediaNode,
+  PipelineStepNode,
   TaskNoteNode,
   VideoGenerationNode,
 } from "./NodeCard";
 import { FolderNode } from "./FolderNode";
 import { Toolbar } from "./Toolbar";
-import type { FolderNodeData, WorkFile, WorkbenchNode } from "./types";
+import { EmbeddedInfiniteCanvas } from "../infinite-canvas/InfiniteCanvas";
+import type {
+  DemoMode,
+  FolderNodeData,
+  PipelineStepNodeData,
+  WorkFile,
+  WorkbenchNode,
+} from "./types";
 
 interface CanvasStageProps {
   onOpenSidebar: () => void;
   isPanelMinimized: boolean;
+  demoMode: DemoMode;
   activeFile: WorkFile | null;
+  focusNodeRequest?: {
+    nodeId: string;
+    nonce: number;
+  } | null;
   onOpenFilePreview: (file: WorkFile) => void;
   onCloseFilePreview: () => void;
   onCanvasPaneClick: () => void;
 }
 
 const nodeTypes: NodeTypes = {
+  "pipeline-step": PipelineStepNode,
   note: TaskNoteNode,
   document: DocumentNode,
   "document-generating": GeneratingDocumentNode,
@@ -50,6 +64,158 @@ const nodeTypes: NodeTypes = {
   "video-generation": VideoGenerationNode,
   folder: FolderNode,
 };
+
+const demoBNodePositionById: Record<string, { x: number; y: number }> = {
+  "doc-1": { x: 520, y: 138 },
+  "doc-2": { x: 764, y: 138 },
+  "doc-generating-1": { x: 1008, y: 138 },
+  "media-1": { x: 164, y: 470 },
+  "media-2": { x: 894, y: 470 },
+  "video-generation-1": { x: 1128, y: 470 },
+};
+
+const demoBVisibleNodeTypes = new Set([
+  "pipeline-step",
+  "document",
+  "media",
+  "video-generation",
+]);
+
+const demoBPipelineSteps = [
+  {
+    id: "pipeline-step-1",
+    position: { x: 84, y: 84 },
+    data: {
+      step: 1,
+      title: "Story Outline",
+      subtitle: "Design story details",
+      parallelLabel: "Parallel Agents ×3",
+      width: 1410,
+      height: 248,
+      boards: [{ id: "outline-board", slots: 4, slotHeight: 154 }],
+    } satisfies PipelineStepNodeData,
+  },
+  {
+    id: "pipeline-step-2",
+    position: { x: 84, y: 414 },
+    data: {
+      step: 2,
+      title: "Design Main Characters",
+      subtitle: "Parallel character visual generation",
+      parallelLabel: "Parallel Agents ×3",
+      width: 1410,
+      height: 272,
+      boards: [
+        {
+          id: "character-board-a",
+          title: "Animation Short Concept Design V1.0",
+          slots: 3,
+          slotHeight: 156,
+        },
+        {
+          id: "character-board-b",
+          title: "Animation Short Concept Design V1.0",
+          slots: 3,
+          slotHeight: 156,
+        },
+      ],
+    } satisfies PipelineStepNodeData,
+  },
+  {
+    id: "pipeline-step-3",
+    position: { x: 84, y: 742 },
+    data: {
+      step: 3,
+      title: "Design Storyboard Scenes",
+      subtitle: "Compose storyboard scene frames",
+      parallelLabel: "Parallel Agents ×2",
+      width: 1410,
+      height: 258,
+      boards: [
+        {
+          id: "storyboard-scenes",
+          title: "Animation Short Concept Design V1.0",
+          slots: 4,
+          slotHeight: 160,
+        },
+      ],
+    } satisfies PipelineStepNodeData,
+  },
+  {
+    id: "pipeline-step-4",
+    position: { x: 84, y: 1064 },
+    data: {
+      step: 4,
+      title: "Generate Storyboard Videos",
+      subtitle: "Render parallel storyboard video drafts",
+      parallelLabel: "Parallel Agents ×2",
+      width: 1410,
+      height: 254,
+      boards: [
+        {
+          id: "storyboard-videos",
+          title: "Animation Short Concept Design V1.0",
+          slots: 4,
+          slotHeight: 150,
+        },
+      ],
+    } satisfies PipelineStepNodeData,
+  },
+  {
+    id: "pipeline-step-5",
+    position: { x: 84, y: 1386 },
+    data: {
+      step: 5,
+      title: "Video Editing",
+      subtitle: "Final assembly and export package",
+      width: 1410,
+      height: 244,
+      boards: [{ id: "editing-output", slots: 1, slotHeight: 160 }],
+    } satisfies PipelineStepNodeData,
+  },
+] as const;
+
+function buildDemoBPipelineNodes(): WorkbenchNode[] {
+  return demoBPipelineSteps.map((step) => ({
+    id: step.id,
+    type: "pipeline-step",
+    position: step.position,
+    data: step.data,
+    draggable: false,
+    selectable: false,
+    style: { zIndex: 0, pointerEvents: "none" },
+  })) as WorkbenchNode[];
+}
+
+function layoutNodesByDemoMode(
+  sourceNodes: WorkbenchNode[],
+  demoMode: DemoMode,
+): WorkbenchNode[] {
+  if (demoMode === "A") {
+    return sourceNodes;
+  }
+
+  const contentNodes = sourceNodes
+    .filter(
+      (node) =>
+        node.type === "document" ||
+        node.type === "media" ||
+        node.type === "video-generation",
+    )
+    .map((node) => {
+      const mappedPosition = demoBNodePositionById[node.id];
+      if (!mappedPosition) {
+        return node;
+      }
+
+      return {
+        ...node,
+        position: mappedPosition,
+      };
+    });
+
+  return [...buildDemoBPipelineNodes(), ...contentNodes];
+}
 
 function PreviewPanel({
   activeFile,
@@ -130,6 +296,7 @@ function PreviewPanel({
 function CanvasContent({
   onOpenSidebar,
   isPanelMinimized,
+  demoMode,
   activeFile,
   onOpenFilePreview,
   onCloseFilePreview,
@@ -142,17 +309,28 @@ function CanvasContent({
     [onOpenFilePreview],
   );
 
-  const initialNodes = useMemo(() => buildCanvasNodes(openPreview), [openPreview]);
+  const baseNodes = useMemo(() => buildCanvasNodes(openPreview), [openPreview]);
+  const initialNodes = useMemo(
+    () => layoutNodesByDemoMode(baseNodes, demoMode),
+    [baseNodes, demoMode],
+  );
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkbenchNode>(initialNodes);
   const [expandedFolderId, setExpandedFolderId] = useState<string | null>(null);
   const { fitView, setCenter } = useReactFlow<WorkbenchNode>();
   const { zoom } = useViewport();
   const hasAnimatedLayoutTransition = useRef(false);
-  const initialPadding = 0.3;
+  const initialPadding = demoMode === "B" ? 0.14 : 0.3;
   const layoutSettleDelayMs = 460;
   const zoomForDotScale = Math.max(zoom, 1);
   const backgroundDotGap = 48 / zoomForDotScale;
   const backgroundDotSize = 2.2 / zoomForDotScale;
+  const visibleNodes = useMemo(
+    () =>
+      demoMode === "B"
+        ? nodes.filter((node) => demoBVisibleNodeTypes.has(node.type))
+        : nodes,
+    [demoMode, nodes],
+  );
 
   useEffect(() => {
     const animation = requestAnimationFrame(() => {
@@ -171,11 +349,64 @@ function CanvasContent({
     });
   }, []);
 
+  const duplicateGeneratedNode = useCallback(
+    (sourceNodeId: string) => {
+      setNodes((previousNodes) => {
+        const sourceNode = previousNodes.find((node) => node.id === sourceNodeId);
+        if (!sourceNode) {
+          return previousNodes;
+        }
+
+        if (sourceNode.type !== "media" && sourceNode.type !== "video-generation") {
+          return previousNodes;
+        }
+
+        const nextId = `${sourceNode.type}-${Date.now().toString(36)}-${Math.random()
+          .toString(36)
+          .slice(2, 7)}`;
+
+        const copiedNode = {
+          ...sourceNode,
+          id: nextId,
+          position: {
+            x: sourceNode.position.x + 124 + Math.round(Math.random() * 36),
+            y: sourceNode.position.y + 72 + Math.round(Math.random() * 26),
+          },
+          selected: false,
+          dragging: false,
+          data: {
+            ...sourceNode.data,
+            entryDelay: 0,
+            isDimmed: false,
+          },
+        } as WorkbenchNode;
+
+        return [...previousNodes, copiedNode];
+      });
+    },
+    [setNodes],
+  );
+
   useEffect(() => {
     setNodes((previousNodes) =>
-      previousNodes.map((node) => {
+      (demoMode === "B"
+        ? previousNodes.filter(
+            (node) =>
+              node.type === "pipeline-step" ||
+              node.type === "document" ||
+              node.type === "media" ||
+              node.type === "video-generation",
+          )
+        : previousNodes
+      ).map((node) => {
         const isFocusedFolder = expandedFolderId !== null && node.id === expandedFolderId;
         const isDimmed = expandedFolderId !== null && !isFocusedFolder;
+        const isDuplicateTarget =
+          demoMode === "B" &&
+          (node.type === "media" || node.type === "video-generation");
+        const isCompactAsset =
+          demoMode === "B" &&
+          (node.type === "media" || node.type === "video-generation");
 
         if (node.type === "folder") {
           return {
@@ -194,6 +425,16 @@ function CanvasContent({
           } as WorkbenchNode;
         }
 
+        if (node.type === "pipeline-step") {
+          return {
+            ...node,
+            style: {
+              ...node.style,
+              opacity: 1,
+            },
+          } as WorkbenchNode;
+        }
+
         return {
           ...node,
           style: {
@@ -204,11 +445,27 @@ function CanvasContent({
           data: {
             ...node.data,
             isDimmed,
+            ...(node.type === "media"
+              ? { variant: isCompactAsset ? "compact" : "default" }
+              : {}),
+            ...(node.type === "video-generation"
+              ? {
+                  variant: isCompactAsset ? "compact" : "default",
+                  compactAgentLabel: isCompactAsset ? "Content Auditor" : undefined,
+                  compactAgentColor: isCompactAsset ? "#fd9732" : undefined,
+                }
+              : {}),
+            duplicateable: demoMode === "B" ? false : isDuplicateTarget,
+            onDuplicate: demoMode === "B"
+              ? undefined
+              : isDuplicateTarget
+              ? () => duplicateGeneratedNode(node.id)
+              : undefined,
           },
         } as WorkbenchNode;
       }) as WorkbenchNode[],
     );
-  }, [expandedFolderId, handleFolderToggle, setNodes]);
+  }, [demoMode, duplicateGeneratedNode, expandedFolderId, handleFolderToggle, setNodes]);
 
   useEffect(() => {
     if (!hasAnimatedLayoutTransition.current) {
@@ -257,7 +514,7 @@ function CanvasContent({
       <ReactFlow
         className="canvas-custom-cursor"
         style={{ cursor: "url('/canvas-agent-cursor.svg?v=5') 7 5, auto" }}
-        nodes={nodes}
+        nodes={visibleNodes}
         edges={[]}
         onNodesChange={onNodesChange}
         nodeTypes={nodeTypes}
@@ -277,12 +534,30 @@ function CanvasContent({
           onCanvasPaneClick();
         }}
       >
-        <Background
-          variant={BackgroundVariant.Dots}
-          color="rgba(160,169,186,0.45)"
-          gap={backgroundDotGap}
-          size={backgroundDotSize}
-        />
+        {demoMode === "A" ? (
+          <Background
+            variant={BackgroundVariant.Dots}
+            color="rgba(160,169,186,0.45)"
+            gap={backgroundDotGap}
+            size={backgroundDotSize}
+          />
+        ) : (
+          <>
+            <Background
+              id="demo-b-lines"
+              variant={BackgroundVariant.Lines}
+              color="rgba(155,164,180,0.18)"
+              gap={120 / zoomForDotScale}
+            />
+            <Background
+              id="demo-b-dots"
+              variant={BackgroundVariant.Dots}
+              color="rgba(160,169,186,0.3)"
+              gap={32 / zoomForDotScale}
+              size={1.6 / zoomForDotScale}
+            />
+          </>
+        )}
       </ReactFlow>
 
       {/**
@@ -295,20 +570,23 @@ function CanvasContent({
         ) : null}
       </AnimatePresence>
 
-      <Toolbar
-        onRun={() => {
-          onCloseFilePreview();
-        }}
-        onUndo={() => {
-          setNodes((prev) => prev.map((node) => ({ ...node })));
-        }}
-        onRedo={() => {
-          setNodes((prev) => prev.map((node) => ({ ...node })));
-        }}
-        onCenter={() => {
-          fitView({ padding: initialPadding, duration: 380 });
-        }}
-      />
+      {demoMode === "A" ? (
+        <Toolbar
+          mode={demoMode}
+          onRun={() => {
+            onCloseFilePreview();
+          }}
+          onUndo={() => {
+            setNodes((prev) => prev.map((node) => ({ ...node })));
+          }}
+          onRedo={() => {
+            setNodes((prev) => prev.map((node) => ({ ...node })));
+          }}
+          onCenter={() => {
+            fitView({ padding: initialPadding, duration: 380 });
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -316,16 +594,30 @@ function CanvasContent({
 export function CanvasStage({
   onOpenSidebar,
   isPanelMinimized,
+  demoMode,
   activeFile,
+  focusNodeRequest,
   onOpenFilePreview,
   onCloseFilePreview,
   onCanvasPaneClick,
 }: CanvasStageProps) {
+  if (demoMode === "B") {
+    return (
+      <EmbeddedInfiniteCanvas
+        onOpenSidebar={onOpenSidebar}
+        onPaneClick={onCanvasPaneClick}
+        focusNodeRequest={focusNodeRequest}
+      />
+    );
+  }
+
   return (
     <ReactFlowProvider>
       <CanvasContent
+        key="demo-a"
         onOpenSidebar={onOpenSidebar}
         isPanelMinimized={isPanelMinimized}
+        demoMode="A"
         activeFile={activeFile}
         onOpenFilePreview={onOpenFilePreview}
         onCloseFilePreview={onCloseFilePreview}

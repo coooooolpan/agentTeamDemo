@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -9,7 +9,7 @@ import { CanvasStage } from "./CanvasStage";
 import { LeftPanel } from "./LeftPanel";
 import { MiniChatDock } from "./MiniChatDock";
 import { SideTabRail } from "./SideTabRail";
-import type { ChatAgentCard, WorkFile } from "./types";
+import type { ChatAgentCard, DemoMode, WorkFile } from "./types";
 
 const Agentation = dynamic(
   () => import("agentation").then((mod) => mod.Agentation),
@@ -23,6 +23,20 @@ export function AppShell() {
   const [hideUnicornScene, setHideUnicornScene] = useState(false);
   const [activeAgent, setActiveAgent] = useState<ChatAgentCard | null>(null);
   const [activeFile, setActiveFile] = useState<WorkFile | null>(null);
+  const [demoMode, setDemoMode] = useState<DemoMode>("A");
+  const [focusNodeRequest, setFocusNodeRequest] = useState<{
+    nodeId: string;
+    nonce: number;
+  } | null>(null);
+
+  const handleLocateAgentRuntime = useCallback((agent: ChatAgentCard, nodeId: string) => {
+    setActiveFile(null);
+    setActiveAgent(agent);
+    setFocusNodeRequest({
+      nodeId,
+      nonce: Date.now(),
+    });
+  }, []);
 
   return (
     <div className="relative h-screen overflow-hidden bg-[#eef1f5]">
@@ -51,15 +65,17 @@ export function AppShell() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -28, opacity: 0.7 }}
             transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute inset-y-0 left-0 z-30 hidden w-[500px] p-4 xl:block"
+            className="absolute inset-y-0 left-0 z-30 hidden w-[450px] p-4 xl:block"
           >
             <LeftPanel
+              demoMode={demoMode}
               isMinimized={isPanelMinimized}
               onToggleMinimize={() => setIsPanelMinimized((prev) => !prev)}
               onOpenAgentDetails={(agent) => {
                 setActiveFile(null);
                 setActiveAgent(agent);
               }}
+              onLocateAgentRuntime={handleLocateAgentRuntime}
             />
           </motion.aside>
         ) : null}
@@ -69,13 +85,48 @@ export function AppShell() {
         <SideTabRail className="absolute inset-y-4 left-4 z-30 hidden xl:flex" />
       ) : null}
 
+      <div className="pointer-events-none absolute right-5 top-4 z-50">
+        <div className="pointer-events-auto inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/90 p-1 shadow-[0_12px_22px_rgba(15,23,42,0.14)] backdrop-blur">
+          <span className="px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#7f8797]">
+            Demo
+          </span>
+          {(["A", "B"] as const).map((mode) => {
+            const active = demoMode === mode;
+
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => {
+                  setDemoMode(mode);
+                  setActiveAgent(null);
+                  setActiveFile(null);
+                  setFocusNodeRequest(null);
+                }}
+                className={`h-8 min-w-10 rounded-full px-3 text-sm font-semibold transition ${
+                  active
+                    ? "bg-[#1f2a3d] text-white shadow-[0_8px_16px_rgba(15,23,42,0.22)]"
+                    : "text-[#5f6b80] hover:bg-[#f3f5f9]"
+                }`}
+                aria-pressed={active}
+                aria-label={`Switch to demo ${mode}`}
+              >
+                {mode}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <main
-        className={`relative h-full xl:[will-change:padding-left] xl:transition-[padding-left] xl:duration-[360ms] xl:ease-[cubic-bezier(0.22,1,0.36,1)] ${isPanelMinimized ? "xl:pl-0" : "xl:pl-[500px]"}`}
+        className={`relative h-full xl:[will-change:padding-left] xl:transition-[padding-left] xl:duration-[360ms] xl:ease-[cubic-bezier(0.22,1,0.36,1)] ${isPanelMinimized ? "xl:pl-0" : "xl:pl-[450px]"}`}
       >
         <CanvasStage
           onOpenSidebar={() => setMobileSidebarOpen(true)}
           isPanelMinimized={isPanelMinimized}
+          demoMode={demoMode}
           activeFile={activeFile}
+          focusNodeRequest={focusNodeRequest}
           onOpenFilePreview={(file) => {
             setActiveAgent(null);
             setActiveFile(file);
@@ -105,10 +156,11 @@ export function AppShell() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: "-102%", opacity: 0.6 }}
               transition={{ type: "spring", stiffness: 260, damping: 28 }}
-              className="fixed inset-y-0 left-0 z-50 w-[min(95vw,500px)] p-3 xl:hidden"
+              className="fixed inset-y-0 left-0 z-50 w-[min(95vw,450px)] p-3 xl:hidden"
             >
               <LeftPanel
                 mobile
+                demoMode={demoMode}
                 isMinimized={isPanelMinimized}
                 onClose={() => setMobileSidebarOpen(false)}
                 onToggleMinimize={() => setIsPanelMinimized((prev) => !prev)}
@@ -116,6 +168,7 @@ export function AppShell() {
                   setActiveFile(null);
                   setActiveAgent(agent);
                 }}
+                onLocateAgentRuntime={handleLocateAgentRuntime}
               />
             </motion.div>
           </>
