@@ -45,9 +45,11 @@ h6 {
   z-index: 20;
 }
 
-.canvas-custom-cursor,
-.canvas-custom-cursor * {
-  cursor: url("/canvas-agent-cursor.svg?v=9") 5 3, default !important;
+html.canvas-native-cursor-hidden,
+html.canvas-native-cursor-hidden *,
+body.canvas-native-cursor-hidden,
+body.canvas-native-cursor-hidden * {
+  cursor: url("/canvas-empty-cursor.svg?v=1") 0 0, none !important;
 }
 
 ::-webkit-scrollbar {

@@ -22,6 +22,36 @@ function getEntryDelay(data: Record<string, unknown>) {
   return typeof data.entryDelay === "number" ? data.entryDelay : 0;
 }
 
+function OutputMetaLabel({
+  actorName,
+  versionTag,
+  show,
+  className = "left-1 top-[-30px]",
+}: {
+  actorName?: string;
+  versionTag?: string;
+  show?: boolean;
+  className?: string;
+}) {
+  if (!show || !actorName) {
+    return null;
+  }
+
+  return (
+    <div
+      className={`pointer-events-none absolute z-30 inline-flex items-center gap-1.5 rounded-full border border-[#dfe4ee] bg-white/95 px-2.5 py-1 text-[10px] font-semibold text-[#5e6a80] shadow-[0_8px_14px_rgba(15,23,42,0.08)] ${className}`}
+    >
+      <span className="h-2.5 w-2.5 rounded-full bg-[linear-gradient(135deg,#fd9732_0%,#7a34ff_100%)]" />
+      <span>{actorName}</span>
+      {versionTag ? (
+        <span className="rounded-full bg-[#eef1ff] px-1.5 py-[1px] text-[9px] font-semibold text-[#6672f1]">
+          {versionTag}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 export const TaskNoteNode = memo(function TaskNoteNode({
   data,
 }: NodeProps) {
@@ -63,7 +93,7 @@ export const TaskNoteNode = memo(function TaskNoteNode({
       layout
       initial={{ opacity: 0, y: 20, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      className="relative w-[268px] cursor-grab rounded-[20px] border border-[#9fd7b8] bg-[#b8f2cc] p-5 shadow-[0_20px_30px_rgba(22,163,74,0.14)] transition-opacity duration-300 active:cursor-grabbing"
+      className="relative w-[244px] cursor-grab rounded-[18px] border border-[#9fd7b8] bg-[#b8f2cc] p-4 shadow-[0_18px_28px_rgba(22,163,74,0.14)] transition-opacity duration-300 active:cursor-grabbing"
       style={{ opacity: nodeOpacity }}
       whileHover={{
         y: -4,
@@ -71,10 +101,10 @@ export const TaskNoteNode = memo(function TaskNoteNode({
       }}
       transition={{ type: "spring", stiffness: 280, damping: 24, delay: entryDelay }}
     >
-      <h3 className="pr-3 text-[27px] font-bold leading-6 text-[#0f3523]">
+      <h3 className="pr-2 text-[24px] font-bold leading-[0.92] text-[#0f3523]">
         {nodeData.title}
       </h3>
-      <ul className="mt-4 space-y-2.5 text-[11px] leading-4 text-[#317457]">
+      <ul className="mt-3.5 space-y-2 text-[10.5px] leading-[1.25] text-[#317457]">
         {nodeData.checklist.map((item, index) => {
           const completed = index < completedCount;
 
@@ -114,7 +144,7 @@ export const TaskNoteNode = memo(function TaskNoteNode({
         })}
       </ul>
       <motion.div
-        className="mt-3 inline-flex items-center rounded-full border border-[#93cfac] bg-white/50 px-2.5 py-1 text-[10px] font-semibold text-[#2f7e58]"
+        className="mt-2.5 inline-flex items-center rounded-full border border-[#93cfac] bg-white/50 px-2 py-1 text-[9.5px] font-semibold text-[#2f7e58]"
         animate={reduceMotion ? { opacity: 1 } : { opacity: [0.72, 1, 0.72] }}
         transition={{ duration: 1.8, repeat: reduceMotion ? 0 : Infinity, ease: "easeInOut" }}
       >
@@ -206,37 +236,45 @@ export const DocumentNode = memo(function DocumentNode({
   };
 
   return (
-    <motion.button
-      type="button"
-      initial={{ opacity: 0, y: 20, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      className="relative w-[200px] cursor-grab rounded-[20px] border border-[#eceef2] bg-white p-4 text-left shadow-[0_18px_32px_rgba(15,23,42,0.12)] transition-opacity duration-300 active:cursor-grabbing"
-      style={{ opacity: nodeOpacity }}
-      whileHover={{
-        y: -5,
-        transition: { type: "spring", stiffness: 300, damping: 24, delay: 0 },
-      }}
-      transition={{ type: "spring", stiffness: 300, damping: 24, delay: entryDelay }}
-      onClick={handleClick}
-    >
-      <p className="text-[11px] font-medium text-[#b8bdc8]">{nodeData.excerpt[0]}</p>
-      <h3 className="mt-1 text-[16px] font-bold leading-5 text-[#14181f]">
-        {nodeData.title}
-      </h3>
-      <p className="text-[15px] font-semibold leading-5 text-[#222a36]">
-        {nodeData.subtitle}
-      </p>
+    <div className="relative h-full w-[200px] transition-opacity duration-300" style={{ opacity: nodeOpacity }}>
+      <OutputMetaLabel
+        actorName={nodeData.actorName}
+        versionTag={nodeData.versionTag}
+        show={nodeData.showOutputMeta}
+      />
+      <motion.button
+        type="button"
+        initial={{ opacity: 0, y: 20, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        className="relative flex h-full w-[200px] cursor-grab flex-col rounded-[20px] border border-[#eceef2] bg-white p-4 text-left shadow-[0_18px_32px_rgba(15,23,42,0.12)] active:cursor-grabbing"
+        whileHover={{
+          scale: 1.018,
+          transition: { type: "spring", stiffness: 300, damping: 24, delay: 0 },
+        }}
+        transition={{ type: "spring", stiffness: 300, damping: 24, delay: entryDelay }}
+        onClick={handleClick}
+      >
+        <p className="text-[11px] font-medium text-[#b8bdc8]">{nodeData.excerpt[0]}</p>
+        <h3 className="mt-1 text-[16px] font-bold leading-5 text-[#14181f]">
+          {nodeData.title}
+        </h3>
+        <p className="text-[15px] font-semibold leading-5 text-[#222a36]">
+          {nodeData.subtitle}
+        </p>
 
-      <div className="mt-3 space-y-1.5 text-[10px] text-[#8e95a3]">
-        {nodeData.excerpt.map((line) => (
-          <div key={line} className="h-1.5 rounded-full bg-[#e9ecf3] first:w-[92%] last:w-[70%]" />
-        ))}
-      </div>
+        <div className="mt-3 space-y-1.5 text-[10px] text-[#8e95a3]">
+          {nodeData.excerpt.map((line) => (
+            <div key={line} className="h-1.5 rounded-full bg-[#e9ecf3] first:w-[92%] last:w-[70%]" />
+          ))}
+        </div>
 
-      <div className="mt-3 rounded-xl border border-[#eef2f6] bg-[#fbfcfe] p-2 text-[10px] text-[#8d95a3]">
-        Research excerpt preview
-      </div>
-    </motion.button>
+        <div className="mt-auto pt-3">
+          <div className="rounded-xl border border-[#eef2f6] bg-[#fbfcfe] p-2 text-[10px] text-[#8d95a3]">
+          Research excerpt preview
+          </div>
+        </div>
+      </motion.button>
+    </div>
   );
 });
 
@@ -287,6 +325,11 @@ export const GeneratingDocumentNode = memo(function GeneratingDocumentNode({
 
   return (
     <div className="relative w-[200px] transition-opacity duration-300" style={{ opacity: nodeOpacity }}>
+      <OutputMetaLabel
+        actorName={nodeData.actorName}
+        versionTag={nodeData.versionTag}
+        show={nodeData.showOutputMeta}
+      />
       <GeneratingCursorCloud
         sequence={documentGeneratingCursorSequence}
         requestedVisibleCount={2}
@@ -407,67 +450,91 @@ export const MediaNode = memo(function MediaNode({
   };
 
   return (
-    <motion.div
-      role="button"
-      tabIndex={0}
-      onClick={handleClick}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          handleClick();
-        }
-      }}
-      initial={{ opacity: 0, y: 20, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      className={`relative cursor-grab rounded-[24px] border border-[#e7eaf0] bg-white text-left shadow-[0_20px_35px_rgba(15,23,42,0.08)] transition-opacity duration-300 active:cursor-grabbing ${
-        compact ? "p-2.5" : "p-4"
-      }`}
-      style={{ opacity: nodeOpacity, width: cardWidth }}
-      whileHover={{
-        y: -5,
-        transition: { type: "spring", stiffness: 300, damping: 24, delay: 0 },
-      }}
-      transition={{ type: "spring", stiffness: 300, damping: 24, delay: entryDelay }}
-    >
-      {nodeData.duplicateable ? (
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            nodeData.onDuplicate?.();
-          }}
-          className="absolute right-3 top-3 z-30 grid h-7 w-7 place-items-center rounded-full border border-[#dfe4ee] bg-white/95 text-[#5f6b7f] shadow-[0_8px_16px_rgba(15,23,42,0.12)] transition hover:bg-[#f3f6fb]"
-          aria-label="Duplicate generated asset"
-        >
-          <CopyPlus className="h-3.5 w-3.5" />
-        </button>
-      ) : null}
-      <div
-        className="relative overflow-hidden rounded-[18px] border border-white/60"
-        style={{ height: previewHeight, backgroundImage: nodeData.gradient }}
+    <div className="relative transition-opacity duration-300" style={{ opacity: nodeOpacity, width: cardWidth }}>
+      <OutputMetaLabel
+        actorName={nodeData.actorName}
+        versionTag={nodeData.versionTag}
+        show={nodeData.showOutputMeta}
+      />
+      <motion.div
+        role="button"
+        tabIndex={0}
+        onClick={handleClick}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            handleClick();
+          }
+        }}
+        initial={{ opacity: 0, y: 20, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        className={`relative cursor-grab rounded-[24px] border border-[#e7eaf0] bg-white text-left shadow-[0_20px_35px_rgba(15,23,42,0.08)] active:cursor-grabbing ${
+          compact ? "p-2.5" : "p-4"
+        }`}
+        style={{ width: cardWidth }}
+        whileHover={{
+          y: -5,
+          transition: { type: "spring", stiffness: 300, damping: 24, delay: 0 },
+        }}
+        transition={{ type: "spring", stiffness: 300, damping: 24, delay: entryDelay }}
       >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.7),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(255,255,255,0.3),transparent_35%)]" />
-        <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-white">
-          <CirclePlay className="h-3.5 w-3.5" />
-          {compact ? "Asset" : nodeData.kindLabel}
+        {nodeData.duplicateable ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              nodeData.onDuplicate?.();
+            }}
+            className="absolute right-3 top-3 z-30 grid h-7 w-7 place-items-center rounded-full border border-[#dfe4ee] bg-white/95 text-[#5f6b7f] shadow-[0_8px_16px_rgba(15,23,42,0.12)] transition hover:bg-[#f3f6fb]"
+            aria-label="Duplicate generated asset"
+          >
+            <CopyPlus className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
+        <div
+          className="relative overflow-hidden rounded-[18px] border border-white/60"
+          style={{
+            height: previewHeight,
+            backgroundImage: nodeData.previewImageSrc ? undefined : nodeData.gradient,
+            backgroundColor: nodeData.previewImageSrc ? "#e7edf8" : undefined,
+          }}
+        >
+          {nodeData.previewImageSrc ? (
+            <>
+              <div
+                className="absolute inset-0 bg-cover bg-center"
+                style={{
+                  backgroundImage: `url(${nodeData.previewImageSrc})`,
+                  backgroundPosition: nodeData.previewImagePosition ?? "center",
+                }}
+              />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(11,18,28,0.02),rgba(11,18,28,0.18))]" />
+            </>
+          ) : (
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.7),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(255,255,255,0.3),transparent_35%)]" />
+          )}
+          <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-white">
+            <CirclePlay className="h-3.5 w-3.5" />
+            {compact ? "Asset" : nodeData.kindLabel}
+          </div>
         </div>
-      </div>
-      {compact ? (
-        <div className="mt-2 px-0.5 text-[11px] font-semibold text-[#30384a]">
-          {nodeData.title}
-        </div>
-      ) : (
-        <div className="mt-2.5 flex items-center justify-between text-xs text-[#7e8798]">
-          <div className="font-semibold text-[#202733]">{nodeData.title}</div>
-          <FileText className="h-4 w-4" />
-        </div>
-      )}
-      {nodeData.duplicateable ? (
-        <div className={`inline-flex items-center rounded-full bg-[#eef5ff] px-2 py-1 text-[10px] font-semibold text-[#4a73a8] ${compact ? "mt-1.5" : "mt-2"}`}>
-          Drag or copy to any canvas area
-        </div>
-      ) : null}
-    </motion.div>
+        {compact ? (
+          <div className="mt-2 px-0.5 text-[11px] font-semibold text-[#30384a]">
+            {nodeData.title}
+          </div>
+        ) : (
+          <div className="mt-2.5 flex items-center justify-between text-xs text-[#7e8798]">
+            <div className="font-semibold text-[#202733]">{nodeData.title}</div>
+            <FileText className="h-4 w-4" />
+          </div>
+        )}
+        {nodeData.duplicateable ? (
+          <div className={`inline-flex items-center rounded-full bg-[#eef5ff] px-2 py-1 text-[10px] font-semibold text-[#4a73a8] ${compact ? "mt-1.5" : "mt-2"}`}>
+            Drag or copy to any canvas area
+          </div>
+        ) : null}
+      </motion.div>
+    </div>
   );
 });
 
@@ -541,6 +608,11 @@ export const VideoGenerationNode = memo(function VideoGenerationNode({
 
   return (
     <div className="relative transition-opacity duration-300" style={{ opacity: nodeOpacity, width: cardWidth }}>
+      <OutputMetaLabel
+        actorName={nodeData.actorName}
+        versionTag={nodeData.versionTag}
+        show={nodeData.showOutputMeta}
+      />
       {!compact ? (
         <GeneratingCursorCloud
           sequence={agentCursorSequence}

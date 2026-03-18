@@ -18,9 +18,14 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { Link2, Menu, Minus, Plus } from "lucide-react";
 
-import { ContentCard } from "./ContentCard";
+import {
+  ContentCard,
+  INFINITE_CANVAS_ASSET_ACTION_EVENT,
+  type ContentCardAssetActionDetail,
+} from "./ContentCard";
 import { taskCanvases } from "./canvasData";
 import { StepLabel } from "./StepLabel";
+import { CanvasCursorOverlay } from "../workbench/CanvasCursorOverlay";
 import { DocumentNode } from "../workbench/NodeCard";
 import { Toolbar } from "../workbench/Toolbar";
 import type { AgentColor, DocumentNodeData, WorkFile } from "../workbench/types";
@@ -124,6 +129,48 @@ function getCardDimensions(card: RoleOutputCard) {
   }
 
   return { width: 516, height: 222 };
+}
+
+function buildDetachedCardFromAsset(
+  baseCard: RoleOutputCard,
+  asset: RoleOutputCard["assets"][number],
+  uniqueSuffix: string,
+) {
+  const outputType: OutputType =
+    asset.kind === "doc"
+      ? "doc"
+      : asset.kind === "video"
+        ? "video"
+        : asset.kind === "image"
+          ? "image"
+          : "mixed";
+
+  const dimensions =
+    outputType === "doc" ? { width: 200, height: 248, layout: "doc" as const } : { width: 248, height: 170, layout: "single" as const };
+
+  const detachedCard: RoleOutputCard = {
+    ...baseCard,
+    id: `${baseCard.id}-asset-${uniqueSuffix}`,
+    outputBatchId: `${baseCard.outputBatchId}-asset-${uniqueSuffix}`,
+    outputType,
+    layout: dimensions.layout,
+    width: dimensions.width,
+    height: dimensions.height,
+    title: asset.title ?? baseCard.title ?? "Detached Asset",
+    assets: [
+      {
+        ...asset,
+        id: `${asset.id}-${uniqueSuffix}`,
+      },
+    ],
+  };
+
+  return {
+    card: detachedCard,
+    width: dimensions.width,
+    height: dimensions.height,
+    resourceType: outputType,
+  };
 }
 
 function getAssetRect(node: OutputNode): Rect {
@@ -340,7 +387,7 @@ function StageContainerNodeView({ data }: NodeProps<GroupNode>) {
   );
 }
 
-function OutputBatchNodeView({ data, selected }: NodeProps<OutputNode>) {
+function OutputBatchNodeView({ id, data, selected, dragging }: NodeProps<OutputNode>) {
   const DocumentNodeRenderer = DocumentNode as unknown as React.ComponentType<{
     data: DocumentNodeData;
   }>;
@@ -383,16 +430,22 @@ function OutputBatchNodeView({ data, selected }: NodeProps<OutputNode>) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.32, delay: data.entryDelay, ease: "easeOut" }}
       className={
-        selected
-          ? "rounded-[18px] ring-2 ring-[#9fb7ff]/65 shadow-[0_12px_24px_rgba(85,114,196,0.2)]"
-          : "rounded-[18px]"
+        dragging
+          ? "rounded-[18px] ring-1 ring-[#9fb7ff]/55 shadow-[0_8px_14px_rgba(85,114,196,0.12)]"
+          : selected
+            ? "rounded-[18px] ring-2 ring-[#9fb7ff]/65 shadow-[0_12px_24px_rgba(85,114,196,0.2)]"
+            : "rounded-[18px]"
       }
-      style={{ width: data.width, height: data.height }}
+      style={{
+        width: data.width,
+        height: data.height,
+        willChange: dragging ? "transform" : undefined,
+      }}
     >
       {data.card.layout === "doc" ? (
         <DocumentNodeRenderer data={documentNodeData} />
       ) : (
-        <ContentCard card={data.card} />
+        <ContentCard card={data.card} ownerNodeId={id} isDragging={!!dragging} />
       )}
     </motion.div>
   );
@@ -458,7 +511,8 @@ function CanvasInner({ onOpenSidebar, onPaneClick, focusNodeRequest }: InfiniteC
   const initialNodes = useMemo(() => createCanvasNodesFromTasks(taskCanvases), []);
   const [nodes, setNodes] = useState<CanvasNode[]>(initialNodes);
   const [clipboardNodes, setClipboardNodes] = useState<OutputNode[]>([]);
-  const { fitView, flowToScreenPosition, setCenter, zoomIn, zoomOut } = useReactFlow<CanvasNode>();
+  const { fitView, flowToScreenPosition, screenToFlowPosition, setCenter, zoomIn, zoomOut } =
+    useReactFlow<CanvasNode>();
   const viewport = useViewport();
   const canvasRootRef = useRef<HTMLDivElement | null>(null);
   const [canvasOrigin, setCanvasOrigin] = useState({ left: 0, top: 0 });
@@ -651,6 +705,96 @@ function CanvasInner({ onOpenSidebar, onPaneClick, focusNodeRequest }: InfiniteC
     [pushHistorySnapshot],
   );
 
+  const spawnDetachedAssetNode = useCallback(
+    (detail: ContentCardAssetActionDetail) => {
+      setNodes((previousNodes) => {
+        const ownerNode = previousNodes.find(
+          (node): node is OutputNode =>
+            node.type === "output-batch" && node.id === detail.ownerNodeId,
+        );
+        if (!ownerNode) {
+          return previousNodes;
+        }
+
+        const sourceAsset = ownerNode.data.card.assets.find((asset) => asset.id === detail.assetId);
+        if (!sourceAsset) {
+          return previousNodes;
+        }
+
+        const uniqueSuffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+        const detached = buildDetachedCardFromAsset(ownerNode.data.card, sourceAsset, uniqueSuffix);
+        const existingRects = previousNodes
+          .filter((node): node is OutputNode => node.type === "output-batch")
+          .map(getAssetRect);
+
+        let nextX = ownerNode.position.x + ownerNode.data.width + 40;
+        let nextY = ownerNode.position.y + 18;
+
+        if (
+          detail.action === "drag" &&
+          typeof detail.clientX === "number" &&
+          typeof detail.clientY === "number"
+        ) {
+          const flowPosition = screenToFlowPosition({
+            x: detail.clientX,
+            y: detail.clientY,
+          });
+          nextX = flowPosition.x - detached.width / 2;
+          nextY = flowPosition.y - detached.height / 2;
+        }
+
+        const desiredRect = {
+          x: nextX,
+          y: nextY,
+          width: detached.width,
+          height: detached.height,
+        };
+
+        const hasCollision = existingRects.some((rect) => rectsOverlap(desiredRect, rect, 8));
+        if (hasCollision) {
+          const placementOffset = findPlacementOffset(
+            {
+              x: ownerNode.position.x,
+              y: ownerNode.position.y,
+              width: detached.width,
+              height: detached.height,
+            },
+            existingRects,
+          );
+          nextX = ownerNode.position.x + placementOffset.x;
+          nextY = ownerNode.position.y + placementOffset.y;
+        }
+
+        const newNode: OutputNode = {
+          id: `output-batch-detached-${uniqueSuffix}`,
+          type: "output-batch",
+          position: { x: nextX, y: nextY },
+          data: {
+            card: detached.card,
+            resourceType: detached.resourceType,
+            width: detached.width,
+            height: detached.height,
+            entryDelay: 0,
+          },
+          draggable: true,
+          selectable: true,
+          selected: true,
+          style: { zIndex: 12 },
+        };
+
+        pushHistorySnapshot(previousNodes);
+
+        return [
+          ...previousNodes.map((node) =>
+            node.type === "output-batch" ? { ...node, selected: false } : node,
+          ),
+          newNode,
+        ];
+      });
+    },
+    [pushHistorySnapshot, screenToFlowPosition],
+  );
+
   const copySelectedOutputs = useCallback(() => {
     if (selectedOutputNodes.length === 0) {
       return;
@@ -701,6 +845,23 @@ function CanvasInner({ onOpenSidebar, onPaneClick, focusNodeRequest }: InfiniteC
     },
     [copySelectedOutputs, deleteSelectedOutputs, duplicateOutputs, selectedOutputNodes],
   );
+
+  useEffect(() => {
+    const onAssetAction = (event: Event) => {
+      const customEvent = event as CustomEvent<ContentCardAssetActionDetail>;
+      const detail = customEvent.detail;
+      if (!detail?.ownerNodeId || !detail.assetId) {
+        return;
+      }
+
+      spawnDetachedAssetNode(detail);
+    };
+
+    window.addEventListener(INFINITE_CANVAS_ASSET_ACTION_EVENT, onAssetAction as EventListener);
+    return () => {
+      window.removeEventListener(INFINITE_CANVAS_ASSET_ACTION_EVENT, onAssetAction as EventListener);
+    };
+  }, [spawnDetachedAssetNode]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -798,11 +959,12 @@ function CanvasInner({ onOpenSidebar, onPaneClick, focusNodeRequest }: InfiniteC
       ) : null}
 
       <ReactFlow
-        className="canvas-custom-cursor"
         nodes={nodes}
         edges={[]}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
+        onlyRenderVisibleElements
+        nodeDragThreshold={1}
         nodesDraggable
         nodesConnectable={false}
         elementsSelectable
@@ -903,6 +1065,8 @@ function CanvasInner({ onOpenSidebar, onPaneClick, focusNodeRequest }: InfiniteC
           </button>
         </div>
       </div>
+
+      <CanvasCursorOverlay containerRef={canvasRootRef} />
     </div>
   );
 }

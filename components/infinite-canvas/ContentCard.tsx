@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Play } from "lucide-react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { Copy, Play } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import {
@@ -11,7 +11,22 @@ import type { OutputAsset, OutputCardLayout, RoleOutputCard } from "./types";
 
 interface ContentCardProps {
   card: RoleOutputCard;
+  ownerNodeId?: string;
+  isDragging?: boolean;
 }
+
+export type AssetActionKind = "drag" | "copy";
+
+export interface ContentCardAssetActionDetail {
+  ownerNodeId: string;
+  cardId: string;
+  assetId: string;
+  action: AssetActionKind;
+  clientX?: number;
+  clientY?: number;
+}
+
+export const INFINITE_CANVAS_ASSET_ACTION_EVENT = "infinite-canvas:asset-action";
 
 function buildGeneratingCursorSequence(card: RoleOutputCard): GeneratingCursorEntry[] {
   const layout = card.layout ?? "triplet";
@@ -117,31 +132,131 @@ function AssetTile({
   selected,
   selectable,
   onSelect,
+  onAssetAction,
 }: {
   asset: OutputAsset;
   compact?: boolean;
   selected?: boolean;
   selectable?: boolean;
   onSelect?: (assetId: string) => void;
+  onAssetAction?: (
+    assetId: string,
+    action: AssetActionKind,
+    coordinates?: { clientX: number; clientY: number },
+  ) => void;
 }) {
+  const dragStateRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    hasDragged: boolean;
+  } | null>(null);
+  const ignoreClickRef = useRef(false);
+  const dragThreshold = 7;
+
   if (!selectable) {
     return <AssetThumb asset={asset} compact={compact} />;
   }
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onPointerDown={(event) => {
         event.stopPropagation();
+        if (!onAssetAction || event.button !== 0) {
+          return;
+        }
+
+        dragStateRef.current = {
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          hasDragged: false,
+        };
+
+        const handlePointerMove = (moveEvent: PointerEvent) => {
+          const state = dragStateRef.current;
+          if (!state || state.pointerId !== moveEvent.pointerId) {
+            return;
+          }
+
+          const deltaX = moveEvent.clientX - state.startX;
+          const deltaY = moveEvent.clientY - state.startY;
+          if (!state.hasDragged && Math.hypot(deltaX, deltaY) >= dragThreshold) {
+            state.hasDragged = true;
+            ignoreClickRef.current = true;
+          }
+        };
+
+        const cleanupPointerHandlers = () => {
+          window.removeEventListener("pointermove", handlePointerMove);
+          window.removeEventListener("pointerup", handlePointerUp);
+          window.removeEventListener("pointercancel", handlePointerCancel);
+        };
+
+        const handlePointerCancel = (cancelEvent: PointerEvent) => {
+          const state = dragStateRef.current;
+          if (!state || state.pointerId !== cancelEvent.pointerId) {
+            return;
+          }
+          dragStateRef.current = null;
+          cleanupPointerHandlers();
+        };
+
+        const handlePointerUp = (upEvent: PointerEvent) => {
+          const state = dragStateRef.current;
+          if (!state || state.pointerId !== upEvent.pointerId) {
+            return;
+          }
+
+          if (state.hasDragged) {
+            onAssetAction(asset.id, "drag", {
+              clientX: upEvent.clientX,
+              clientY: upEvent.clientY,
+            });
+          }
+
+          dragStateRef.current = null;
+          cleanupPointerHandlers();
+        };
+
+        window.addEventListener("pointermove", handlePointerMove, { passive: true });
+        window.addEventListener("pointerup", handlePointerUp);
+        window.addEventListener("pointercancel", handlePointerCancel);
       }}
       onClick={(event) => {
         event.stopPropagation();
+        if (ignoreClickRef.current) {
+          ignoreClickRef.current = false;
+          return;
+        }
         onSelect?.(asset.id);
       }}
-      className="nodrag relative block h-full w-full rounded-[12px] text-left outline-none"
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect?.(asset.id);
+        }
+      }}
+      className="nodrag group relative block h-full w-full rounded-[12px] text-left outline-none"
       aria-label={asset.title ? `Select ${asset.title}` : "Select asset"}
     >
       <AssetThumb asset={asset} compact={compact} />
+      {onAssetAction ? (
+        <button
+          type="button"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            onAssetAction(asset.id, "copy");
+          }}
+          className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full border border-white/85 bg-white/86 text-[#6f7d93] opacity-0 shadow-[0_8px_12px_rgba(15,23,42,0.12)] backdrop-blur-sm transition group-hover:opacity-100 hover:bg-white"
+          aria-label="Copy asset to canvas"
+        >
+          <Copy className="h-2.5 w-2.5" />
+        </button>
+      ) : null}
       <span
         className={cn(
           "pointer-events-none absolute inset-0 rounded-[12px] ring-1 ring-inset transition-all",
@@ -150,7 +265,7 @@ function AssetTile({
             : "ring-[#d6e0ef]/70",
         )}
       />
-    </button>
+    </div>
   );
 }
 
@@ -158,10 +273,16 @@ function AssetGrid({
   card,
   selectedAssetId,
   onSelectAsset,
+  onAssetAction,
 }: {
   card: RoleOutputCard;
   selectedAssetId?: string | null;
   onSelectAsset?: (assetId: string) => void;
+  onAssetAction?: (
+    assetId: string,
+    action: AssetActionKind,
+    coordinates?: { clientX: number; clientY: number },
+  ) => void;
 }) {
   const layout: OutputCardLayout = card.layout ?? "triplet";
   const selectable = card.assets.length > 1;
@@ -186,6 +307,7 @@ function AssetGrid({
               selected={selectedAssetId === asset.id}
               selectable={selectable}
               onSelect={onSelectAsset}
+              onAssetAction={onAssetAction}
             />
           </div>
         ))}
@@ -203,6 +325,7 @@ function AssetGrid({
               selected={selectedAssetId === asset.id}
               selectable={selectable}
               onSelect={onSelectAsset}
+              onAssetAction={onAssetAction}
             />
           </div>
         ))}
@@ -219,6 +342,7 @@ function AssetGrid({
             selected={selectedAssetId === asset.id}
             selectable={selectable}
             onSelect={onSelectAsset}
+            onAssetAction={onAssetAction}
           />
         </div>
       ))}
@@ -226,7 +350,11 @@ function AssetGrid({
   );
 }
 
-export function ContentCard({ card }: ContentCardProps) {
+export const ContentCard = memo(function ContentCard({
+  card,
+  ownerNodeId,
+  isDragging = false,
+}: ContentCardProps) {
   const isDocumentCard = (card.layout ?? "triplet") === "doc";
   const fallbackDocAsset: OutputAsset = { id: `${card.id}-doc`, kind: "doc" };
   const supportsSubAssetSelection = !isDocumentCard && card.assets.length > 1;
@@ -237,6 +365,31 @@ export function ContentCard({ card }: ContentCardProps) {
   );
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(
     supportsSubAssetSelection ? card.assets[0]?.id ?? null : null,
+  );
+  const dispatchAssetAction = useCallback(
+    (
+      assetId: string,
+      action: AssetActionKind,
+      coordinates?: { clientX: number; clientY: number },
+    ) => {
+      if (!ownerNodeId || typeof window === "undefined") {
+        return;
+      }
+
+      window.dispatchEvent(
+        new CustomEvent<ContentCardAssetActionDetail>(INFINITE_CANVAS_ASSET_ACTION_EVENT, {
+          detail: {
+            ownerNodeId,
+            cardId: card.id,
+            assetId,
+            action,
+            clientX: coordinates?.clientX,
+            clientY: coordinates?.clientY,
+          },
+        }),
+      );
+    },
+    [card.id, ownerNodeId],
   );
 
   return (
@@ -252,11 +405,21 @@ export function ContentCard({ card }: ContentCardProps) {
         />
       ) : null}
 
-      <div className="relative h-full w-full overflow-hidden rounded-[18px]">
+      <div
+        className={cn(
+          "relative h-full w-full overflow-hidden rounded-[18px]",
+          isDragging && "transition-none",
+        )}
+      >
         {isDocumentCard ? (
           <AssetThumb asset={card.assets[0] ?? fallbackDocAsset} />
         ) : (
-          <AssetGrid card={card} selectedAssetId={selectedAssetId} onSelectAsset={setSelectedAssetId} />
+          <AssetGrid
+            card={card}
+            selectedAssetId={selectedAssetId}
+            onSelectAsset={setSelectedAssetId}
+            onAssetAction={dispatchAssetAction}
+          />
         )}
 
         <div className="pointer-events-none absolute inset-0 rounded-[18px] ring-1 ring-inset ring-[#d7e2f1]/72 transition-colors duration-200 group-hover:ring-[#bdcdea]/85" />
@@ -280,4 +443,4 @@ export function ContentCard({ card }: ContentCardProps) {
       </div>
     </article>
   );
-}
+});

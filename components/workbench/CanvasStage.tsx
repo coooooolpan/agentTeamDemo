@@ -6,6 +6,7 @@ import {
   BackgroundVariant,
   ReactFlow,
   ReactFlowProvider,
+  SelectionMode,
   type NodeTypes,
   useViewport,
   useNodesState,
@@ -32,6 +33,7 @@ import {
   TaskNoteNode,
   VideoGenerationNode,
 } from "./NodeCard";
+import { CanvasCursorOverlay } from "./CanvasCursorOverlay";
 import { FolderNode } from "./FolderNode";
 import { Toolbar } from "./Toolbar";
 import { EmbeddedInfiniteCanvas } from "../infinite-canvas/InfiniteCanvas";
@@ -82,6 +84,22 @@ const demoBVisibleNodeTypes = new Set([
   "media",
   "video-generation",
 ]);
+
+const demoAOutputNodeTypes = new Set([
+  "document",
+  "document-generating",
+  "media",
+  "video-generation",
+]);
+
+type DemoAOutputNodeType = "document" | "document-generating" | "media" | "video-generation";
+
+const demoAOutputSizeByType: Record<DemoAOutputNodeType, { width: number; height: number }> = {
+  document: { width: 200, height: 292 },
+  "document-generating": { width: 200, height: 306 },
+  media: { width: 430, height: 248 },
+  "video-generation": { width: 430, height: 248 },
+};
 
 const demoBPipelineSteps = [
   {
@@ -189,31 +207,163 @@ function buildDemoBPipelineNodes(): WorkbenchNode[] {
   })) as WorkbenchNode[];
 }
 
+function isDemoAOutputNode(node: WorkbenchNode): node is WorkbenchNode & { type: DemoAOutputNodeType } {
+  return demoAOutputNodeTypes.has(node.type);
+}
+
+function getTimelineOrder(node: WorkbenchNode) {
+  if (!isDemoAOutputNode(node)) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  const order = (node.data as { timelineOrder?: number }).timelineOrder;
+  return typeof order === "number" ? order : Number.MAX_SAFE_INTEGER;
+}
+
+function getBatchId(node: WorkbenchNode) {
+  if (!isDemoAOutputNode(node)) {
+    return "";
+  }
+  const batchId = (node.data as { batchId?: string }).batchId;
+  return typeof batchId === "string" ? batchId : "";
+}
+
+function layoutNodesForDemoA(sourceNodes: WorkbenchNode[]): WorkbenchNode[] {
+  const outputNodes = sourceNodes
+    .filter(isDemoAOutputNode)
+    .sort((left, right) => {
+      const orderDiff = getTimelineOrder(left) - getTimelineOrder(right);
+      if (orderDiff !== 0) {
+        return orderDiff;
+      }
+      return left.id.localeCompare(right.id);
+    });
+
+  const positionedNodeMap = new Map<string, { x: number; y: number }>();
+  const layoutStartX = 348;
+  const layoutStartY = 108;
+  const maxTrackWidth = 940;
+  const sameBatchGap = 14;
+  const nextBatchGap = 38;
+  const rowGap = 86;
+
+  let cursorX = layoutStartX;
+  let cursorY = layoutStartY;
+  let rowMaxHeight = 0;
+  let hasPlacedItem = false;
+  let previousBatchId = "";
+
+  outputNodes.forEach((node) => {
+    const estimatedSize = demoAOutputSizeByType[node.type];
+    const batchId = getBatchId(node);
+    const baseGap = !hasPlacedItem
+      ? 0
+      : batchId.length > 0 && previousBatchId === batchId
+        ? sameBatchGap
+        : nextBatchGap;
+    let candidateX = cursorX + baseGap;
+
+    if (
+      hasPlacedItem &&
+      candidateX + estimatedSize.width - layoutStartX > maxTrackWidth
+    ) {
+      cursorX = layoutStartX;
+      cursorY += rowMaxHeight + rowGap;
+      rowMaxHeight = 0;
+      previousBatchId = "";
+      candidateX = layoutStartX;
+    }
+
+    positionedNodeMap.set(node.id, { x: candidateX, y: cursorY });
+    cursorX = candidateX + estimatedSize.width;
+    rowMaxHeight = Math.max(rowMaxHeight, estimatedSize.height);
+    hasPlacedItem = true;
+    previousBatchId = batchId;
+  });
+
+  const timelineBottom = cursorY + rowMaxHeight;
+  const noteNode = sourceNodes.find((node) => node.type === "note");
+  if (noteNode) {
+    positionedNodeMap.set(noteNode.id, { x: 52, y: 82 });
+  }
+
+  const folderNodes = sourceNodes
+    .filter((node) => node.type === "folder")
+    .sort((left, right) => left.id.localeCompare(right.id));
+
+  const folderWidth = 360;
+  const folderGap = 28;
+  const folderRowGap = 56;
+  let folderX = layoutStartX;
+  let folderY = timelineBottom + 156;
+
+  folderNodes.forEach((node) => {
+    if (folderX + folderWidth - layoutStartX > maxTrackWidth && folderX !== layoutStartX) {
+      folderX = layoutStartX;
+      folderY += 248 + folderRowGap;
+    }
+    positionedNodeMap.set(node.id, { x: folderX, y: folderY });
+    folderX += folderWidth + folderGap;
+  });
+
+  return sourceNodes.map((node) => {
+    const nextPosition = positionedNodeMap.get(node.id);
+    if (isDemoAOutputNode(node)) {
+      return {
+        ...node,
+        position: nextPosition ?? node.position,
+        data: {
+          ...node.data,
+          showOutputMeta: true,
+        },
+      } as WorkbenchNode;
+    }
+
+    if (nextPosition) {
+      return {
+        ...node,
+        position: nextPosition,
+      };
+    }
+
+    return node;
+  });
+}
+
 function layoutNodesByDemoMode(
   sourceNodes: WorkbenchNode[],
   demoMode: DemoMode,
 ): WorkbenchNode[] {
   if (demoMode === "A") {
-    return sourceNodes;
+    return layoutNodesForDemoA(sourceNodes);
   }
 
-  const contentNodes = sourceNodes
+  const contentNodes: WorkbenchNode[] = sourceNodes
     .filter(
       (node) =>
         node.type === "document" ||
         node.type === "media" ||
         node.type === "video-generation",
     )
-    .map((node) => {
+    .map((node): WorkbenchNode => {
       const mappedPosition = demoBNodePositionById[node.id];
       if (!mappedPosition) {
-        return node;
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            showOutputMeta: false,
+          },
+        } as WorkbenchNode;
       }
 
       return {
         ...node,
         position: mappedPosition,
-      };
+        data: {
+          ...node.data,
+          showOutputMeta: false,
+        },
+      } as WorkbenchNode;
     });
 
   return [...buildDemoBPipelineNodes(), ...contentNodes];
@@ -320,8 +470,9 @@ function CanvasContent({
   const [expandedFolderId, setExpandedFolderId] = useState<string | null>(null);
   const { fitView, setCenter, zoomIn, zoomOut } = useReactFlow<WorkbenchNode>();
   const { zoom } = useViewport();
+  const canvasRootRef = useRef<HTMLDivElement | null>(null);
   const hasAnimatedLayoutTransition = useRef(false);
-  const initialPadding = demoMode === "B" ? 0.14 : 0.3;
+  const initialPadding = demoMode === "B" ? 0.14 : 0.24;
   const layoutSettleDelayMs = 460;
   const zoomForDotScale = Math.max(zoom, 1);
   const backgroundDotGap = 48 / zoomForDotScale;
@@ -499,7 +650,10 @@ function CanvasContent({
   );
 
   return (
-    <div className="canvas-custom-cursor relative h-full w-full overflow-hidden">
+    <div
+      ref={canvasRootRef}
+      className="canvas-custom-cursor relative h-full w-full overflow-hidden"
+    >
       <button
         type="button"
         onClick={onOpenSidebar}
@@ -515,21 +669,24 @@ function CanvasContent({
        * which fits this workbench mock without implementing viewport math manually.
        */}
       <ReactFlow
-        className="canvas-custom-cursor"
         nodes={visibleNodes}
         edges={[]}
         onNodesChange={onNodesChange}
         nodeTypes={nodeTypes}
         fitView
-        minZoom={0.42}
-        maxZoom={1.8}
-        panOnDrag
+        minZoom={0.12}
+        maxZoom={4.2}
+        nodesDraggable
+        elementsSelectable
+        selectionOnDrag
+        selectionMode={SelectionMode.Partial}
+        panOnDrag={false}
+        panActivationKeyCode="Space"
         panOnScroll
         zoomOnScroll
         zoomOnPinch
-        zoomOnDoubleClick
+        zoomOnDoubleClick={false}
         nodesConnectable={false}
-        elementsSelectable={false}
         onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={() => {
           onCloseFilePreview();
@@ -620,6 +777,8 @@ function CanvasContent({
           </div>
         </div>
       ) : null}
+
+      <CanvasCursorOverlay containerRef={canvasRootRef} />
     </div>
   );
 }
