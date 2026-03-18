@@ -88,13 +88,11 @@ export function Toolbar(props: ToolbarProps) {
   const activeButtons = mode === "B" ? demoBButtons : buttons;
 
   return (
-    <div className="pointer-events-none absolute bottom-7 left-1/2 z-40 -translate-x-1/2">
+    <div className="pointer-events-none absolute bottom-4 left-1/2 z-40 -translate-x-1/2">
       <div
         className={cn(
           "pointer-events-auto flex items-center gap-1 rounded-full border border-white/90 bg-white/95 backdrop-blur-md",
-          mode === "B"
-            ? "p-1 shadow-[0_14px_28px_rgba(15,23,42,0.14)]"
-            : "p-1.5 shadow-[0_18px_35px_rgba(15,23,42,0.16)]",
+          "p-1 shadow-[0_14px_28px_rgba(15,23,42,0.14)]",
         )}
       >
         {activeButtons.map((item) => {
@@ -109,7 +107,7 @@ export function Toolbar(props: ToolbarProps) {
               onClick={() => item.onPress(props)}
               className={cn(
                 "flex items-center gap-1 rounded-full text-sm font-semibold transition-colors",
-                mode === "B" ? "h-9 px-2.5" : "h-10 px-3",
+                "h-9 px-2.5",
                 "hover:bg-[#f2f4f8]",
                 item.className,
               )}

@@ -29,6 +29,8 @@ export interface ChatAgentCard {
   name: string;
   summary: string;
   color: AgentColor;
+  level?: "primary" | "sub";
+  parentAgentId?: string;
   status: AgentRuntimeStatus;
   currentTask: string;
   tools: string[];

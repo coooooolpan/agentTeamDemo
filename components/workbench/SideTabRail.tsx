@@ -1,6 +1,7 @@
 "use client";
 
 import { History, Home, Layers, Sparkles, SquarePlus } from "lucide-react";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
@@ -44,8 +45,15 @@ export function SideTabRail({ className }: SideTabRailProps) {
         className,
       )}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-white shadow-lg">
-        <span className="text-xs font-bold tracking-[0.14em]">AI</span>
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black shadow-lg">
+        <Image
+          src="/k2-space-mark.svg"
+          alt="K2 Space mark"
+          width={26}
+          height={26}
+          className="h-[26px] w-[26px]"
+          priority
+        />
       </div>
 
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-3">

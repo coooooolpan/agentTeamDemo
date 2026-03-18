@@ -17,6 +17,8 @@ import {
   FileImage,
   FileText,
   Menu,
+  Minus,
+  Plus,
   Video,
   X,
 } from "lucide-react";
@@ -316,7 +318,7 @@ function CanvasContent({
   );
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkbenchNode>(initialNodes);
   const [expandedFolderId, setExpandedFolderId] = useState<string | null>(null);
-  const { fitView, setCenter } = useReactFlow<WorkbenchNode>();
+  const { fitView, setCenter, zoomIn, zoomOut } = useReactFlow<WorkbenchNode>();
   const { zoom } = useViewport();
   const hasAnimatedLayoutTransition = useRef(false);
   const initialPadding = demoMode === "B" ? 0.14 : 0.3;
@@ -324,6 +326,7 @@ function CanvasContent({
   const zoomForDotScale = Math.max(zoom, 1);
   const backgroundDotGap = 48 / zoomForDotScale;
   const backgroundDotSize = 2.2 / zoomForDotScale;
+  const zoomLabel = `${Math.round(zoom * 100)}%`;
   const visibleNodes = useMemo(
     () =>
       demoMode === "B"
@@ -496,7 +499,7 @@ function CanvasContent({
   );
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
+    <div className="canvas-custom-cursor relative h-full w-full overflow-hidden">
       <button
         type="button"
         onClick={onOpenSidebar}
@@ -513,7 +516,6 @@ function CanvasContent({
        */}
       <ReactFlow
         className="canvas-custom-cursor"
-        style={{ cursor: "url('/canvas-agent-cursor.svg?v=5') 7 5, auto" }}
         nodes={visibleNodes}
         edges={[]}
         onNodesChange={onNodesChange}
@@ -586,6 +588,37 @@ function CanvasContent({
             fitView({ padding: initialPadding, duration: 380 });
           }}
         />
+      ) : null}
+
+      {demoMode === "A" ? (
+        <div className="pointer-events-none absolute bottom-4 right-4 z-20">
+          <div className="pointer-events-auto inline-flex items-center gap-1 rounded-full border border-white/80 bg-white/88 p-1 shadow-[0_10px_20px_rgba(15,23,42,0.12)] backdrop-blur-sm">
+            <button
+              type="button"
+              onClick={() => zoomOut({ duration: 180 })}
+              className="grid h-8 w-8 place-items-center rounded-full text-[#7d8798] transition hover:bg-[#f0f3f8]"
+              aria-label="Zoom out"
+            >
+              <Minus className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => fitView({ padding: initialPadding, duration: 220 })}
+              className="rounded-full px-2 text-xs font-semibold text-[#8b95a7]"
+              aria-label="Reset zoom"
+            >
+              {zoomLabel}
+            </button>
+            <button
+              type="button"
+              onClick={() => zoomIn({ duration: 180 })}
+              className="grid h-8 w-8 place-items-center rounded-full text-[#7d8798] transition hover:bg-[#f0f3f8]"
+              aria-label="Zoom in"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       ) : null}
     </div>
   );

@@ -1,41 +1,283 @@
+import { useMemo, useState } from "react";
+import { Play } from "lucide-react";
+
 import { cn } from "@/lib/utils";
-import type { CanvasCard } from "./types";
+import {
+  GeneratingCursorCloud,
+  type GeneratingCursorEntry,
+} from "@/components/workbench/GeneratingCursorCloud";
 import { PlaceholderCard } from "./PlaceholderCard";
+import type { OutputAsset, OutputCardLayout, RoleOutputCard } from "./types";
 
 interface ContentCardProps {
-  card: CanvasCard;
+  card: RoleOutputCard;
 }
 
-export function ContentCard({ card }: ContentCardProps) {
-  if (card.kind === "placeholder") {
-    return <PlaceholderCard size={card.size} />;
+function buildGeneratingCursorSequence(card: RoleOutputCard): GeneratingCursorEntry[] {
+  const layout = card.layout ?? "triplet";
+  const firstPlacement =
+    layout === "strip"
+      ? "left-[18px] -top-[34px]"
+      : layout === "single"
+        ? "left-[34px] -top-[34px]"
+        : "left-[16px] -top-[32px]";
+  const secondPlacement =
+    layout === "strip"
+      ? "right-[-118px] top-[26px]"
+      : layout === "single"
+        ? "right-[-114px] top-[22px]"
+        : "right-[-110px] top-[28px]";
+  const thirdPlacement =
+    layout === "strip"
+      ? "left-[-106px] top-[78px]"
+      : layout === "single"
+        ? "left-[-102px] top-[48px]"
+        : "left-[-102px] top-[70px]";
+
+  return [
+    {
+      id: `${card.id}-cursor-role`,
+      label: card.role.name,
+      color: "#7a34ff",
+      badge: "bg-[#7a34ff]",
+      placement: firstPlacement,
+      xDrift: [0, 4, -1, 0],
+      yDrift: [0, -3, 2, 0],
+      rotation: [0, 0.8, -0.2, 0],
+    },
+    {
+      id: `${card.id}-cursor-auditor`,
+      label: "Content Auditor",
+      color: "#fd9732",
+      badge: "bg-[#fd9732]",
+      placement: secondPlacement,
+      xDrift: [0, -4, 1, 0],
+      yDrift: [0, 3, -2, 0],
+      rotation: [0, -0.8, 0.3, 0],
+    },
+    {
+      id: `${card.id}-cursor-producer`,
+      label: "Video Producer",
+      color: "#06bc57",
+      badge: "bg-[#06bc57]",
+      placement: thirdPlacement,
+      xDrift: [0, 5, -2, 0],
+      yDrift: [0, -2, 2, 0],
+      rotation: [0, 0.9, -0.2, 0],
+    },
+  ];
+}
+
+function AssetThumb({ asset, compact = false }: { asset: OutputAsset; compact?: boolean }) {
+  if (asset.kind === "placeholder") {
+    return <PlaceholderCard ratio={asset.ratio ?? "square"} className="h-full w-full" />;
   }
 
-  if (card.kind === "image") {
+  if (asset.kind === "doc") {
     return (
-      <div
-        className={cn(
-          "relative overflow-hidden rounded-[18px] border border-[#dce4f0]/85",
-          card.size === "sm" && "h-[170px] w-[198px]",
-          card.size === "lg" && "h-[186px] w-[220px]",
-          (!card.size || card.size === "md") && "h-[182px] w-[178px]",
-        )}
-      >
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,#121728_0%,#2d3560_36%,#6f82b8_68%,#bfd0ea_100%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.34),transparent_35%),radial-gradient(circle_at_72%_74%,rgba(255,255,255,0.18),transparent_40%)]" />
+      <div className="h-full w-full rounded-[12px] border border-[#e8edf5] bg-white p-2.5">
+        <div className="h-2.5 w-20 rounded-full bg-[#e9eef6]" />
+        <div className="mt-2 space-y-1.5">
+          <div className="h-1.5 rounded-full bg-[#edf2f8]" />
+          <div className="h-1.5 rounded-full bg-[#edf2f8]" />
+          <div className="h-1.5 w-3/4 rounded-full bg-[#edf2f8]" />
+        </div>
       </div>
     );
   }
 
   return (
-    <article className="w-[198px] rounded-[16px] border border-[#eceff4] bg-white/96 px-4 py-3.5 shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
-      <h3 className="text-[20px] font-semibold leading-6 text-[#212734]">{card.title}</h3>
-      <p className="mt-2 text-[10.5px] leading-4 text-[#9ba4b6]">{card.subtitle}</p>
-      <ul className="mt-3 space-y-1.5 text-[10.5px] leading-4 text-[#9ba4b6]">
-        {(card.lines ?? []).map((line) => (
-          <li key={line}>{line}</li>
+    <div className="relative h-full w-full overflow-hidden rounded-[12px] border border-[#d9e4f3]/80 bg-[#e7edf8]">
+      {asset.src ? (
+        <img
+          src={asset.src}
+          alt={asset.title ?? "asset"}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          draggable={false}
+        />
+      ) : (
+        <PlaceholderCard ratio={asset.ratio ?? "square"} className="h-full w-full rounded-none" />
+      )}
+
+      {asset.kind === "video" ? (
+        <div className={cn("absolute inset-0 grid place-items-center", compact && "scale-90")}>
+          <span className="grid h-7 w-7 place-items-center rounded-full border border-white/60 bg-black/32 text-white backdrop-blur-sm">
+            <Play className="h-3.5 w-3.5 fill-current" />
+          </span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AssetTile({
+  asset,
+  compact,
+  selected,
+  selectable,
+  onSelect,
+}: {
+  asset: OutputAsset;
+  compact?: boolean;
+  selected?: boolean;
+  selectable?: boolean;
+  onSelect?: (assetId: string) => void;
+}) {
+  if (!selectable) {
+    return <AssetThumb asset={asset} compact={compact} />;
+  }
+
+  return (
+    <button
+      type="button"
+      onPointerDown={(event) => {
+        event.stopPropagation();
+      }}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect?.(asset.id);
+      }}
+      className="nodrag relative block h-full w-full rounded-[12px] text-left outline-none"
+      aria-label={asset.title ? `Select ${asset.title}` : "Select asset"}
+    >
+      <AssetThumb asset={asset} compact={compact} />
+      <span
+        className={cn(
+          "pointer-events-none absolute inset-0 rounded-[12px] ring-1 ring-inset transition-all",
+          selected
+            ? "ring-[#92aef9] shadow-[0_0_0_2px_rgba(146,174,249,0.28)_inset]"
+            : "ring-[#d6e0ef]/70",
+        )}
+      />
+    </button>
+  );
+}
+
+function AssetGrid({
+  card,
+  selectedAssetId,
+  onSelectAsset,
+}: {
+  card: RoleOutputCard;
+  selectedAssetId?: string | null;
+  onSelectAsset?: (assetId: string) => void;
+}) {
+  const layout: OutputCardLayout = card.layout ?? "triplet";
+  const selectable = card.assets.length > 1;
+
+  if (layout === "single") {
+    const singleAsset = card.assets[0] ?? { id: `${card.id}-placeholder`, kind: "placeholder" as const };
+    return (
+      <div className="h-full w-full">
+        <AssetTile asset={singleAsset} selected selectable={false} />
+      </div>
+    );
+  }
+
+  if (layout === "strip") {
+    return (
+      <div className="grid h-full w-full grid-cols-4 gap-2">
+        {card.assets.slice(0, 4).map((asset) => (
+          <div key={asset.id} className="min-h-0">
+            <AssetTile
+              asset={asset}
+              compact
+              selected={selectedAssetId === asset.id}
+              selectable={selectable}
+              onSelect={onSelectAsset}
+            />
+          </div>
         ))}
-      </ul>
+      </div>
+    );
+  }
+
+  if (layout === "quad") {
+    return (
+      <div className="grid h-full w-full grid-cols-2 gap-2">
+        {card.assets.slice(0, 4).map((asset) => (
+          <div key={asset.id} className="min-h-0">
+            <AssetTile
+              asset={asset}
+              selected={selectedAssetId === asset.id}
+              selectable={selectable}
+              onSelect={onSelectAsset}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid h-full w-full grid-cols-3 gap-2">
+      {card.assets.slice(0, 3).map((asset) => (
+        <div key={asset.id} className="min-h-0">
+          <AssetTile
+            asset={asset}
+            selected={selectedAssetId === asset.id}
+            selectable={selectable}
+            onSelect={onSelectAsset}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ContentCard({ card }: ContentCardProps) {
+  const isDocumentCard = (card.layout ?? "triplet") === "doc";
+  const fallbackDocAsset: OutputAsset = { id: `${card.id}-doc`, kind: "doc" };
+  const supportsSubAssetSelection = !isDocumentCard && card.assets.length > 1;
+  const isGenerating = card.assets.some((asset) => asset.kind === "placeholder");
+  const generatingCursorSequence = useMemo(
+    () => (isGenerating ? buildGeneratingCursorSequence(card) : []),
+    [card, isGenerating],
+  );
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(
+    supportsSubAssetSelection ? card.assets[0]?.id ?? null : null,
+  );
+
+  return (
+    <article className="group relative h-full w-full rounded-[18px]">
+      {isGenerating ? (
+        <GeneratingCursorCloud
+          sequence={generatingCursorSequence}
+          requestedVisibleCount={1}
+          minDelayMs={1700}
+          maxDelayMs={3200}
+          defaultVisibleIds={[generatingCursorSequence[0]?.id ?? ""]}
+          size="sm"
+        />
+      ) : null}
+
+      <div className="relative h-full w-full overflow-hidden rounded-[18px]">
+        {isDocumentCard ? (
+          <AssetThumb asset={card.assets[0] ?? fallbackDocAsset} />
+        ) : (
+          <AssetGrid card={card} selectedAssetId={selectedAssetId} onSelectAsset={setSelectedAssetId} />
+        )}
+
+        <div className="pointer-events-none absolute inset-0 rounded-[18px] ring-1 ring-inset ring-[#d7e2f1]/72 transition-colors duration-200 group-hover:ring-[#bdcdea]/85" />
+
+        <div className="pointer-events-none absolute left-2.5 top-2.5 inline-flex translate-y-1 items-center gap-1.5 rounded-full border border-white/85 bg-white/85 px-2 py-1 text-[9.5px] font-semibold text-[#5f6b82] opacity-0 backdrop-blur-sm transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
+          <span
+            className="h-3 w-3 shrink-0 rounded-full border border-white/80"
+            style={{ backgroundImage: card.role.avatarGradient }}
+          />
+          <span className="truncate">{card.role.name}</span>
+        </div>
+
+        <div className="pointer-events-none absolute right-2.5 top-2.5 inline-flex translate-y-1 items-center rounded-full border border-white/80 bg-white/86 px-1.5 py-0.5 text-[9px] font-semibold text-[#6c7890] opacity-0 backdrop-blur-sm transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
+          V{card.versionIndex}
+        </div>
+
+        <div className="pointer-events-none absolute bottom-2.5 left-2.5 max-w-[78%] translate-y-1 rounded-full border border-white/75 bg-white/84 px-2 py-1 text-[9px] font-medium text-[#657187] opacity-0 backdrop-blur-sm transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
+          <span className="truncate">{card.title ?? "Output Batch"}</span>
+          <span className="ml-1 text-[#95a2b8]">{card.createdAt}</span>
+        </div>
+      </div>
     </article>
   );
 }

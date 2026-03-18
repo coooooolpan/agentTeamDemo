@@ -4,7 +4,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import {
-  AtSign,
   Check,
   ArrowUpRight,
   ArrowUp,
@@ -18,20 +17,26 @@ import {
   Cpu,
   Database,
   Clock3,
+  Download,
   Expand,
+  FileCode2,
+  FileImage,
+  FileText,
+  Folder,
   MessageCircle,
   Plus,
   Search,
   SlidersHorizontal,
   Sparkles,
   Terminal,
+  Video,
   X,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { chatAgentCards, chatGalleryGradients, timelineEvents } from "./mock-data";
+import { chatAgentCards, generatedFileFolders, timelineEvents } from "./mock-data";
 import { SideTabRail } from "./SideTabRail";
-import type { AgentColor, ChatAgentCard, DemoMode } from "./types";
+import type { AgentColor, ChatAgentCard, DemoMode, WorkFile } from "./types";
 
 interface LeftPanelProps {
   mobile?: boolean;
@@ -52,11 +57,46 @@ const agentDotScheme: Record<AgentColor, string> = {
 };
 
 const agentNameColorScheme: Record<AgentColor, string> = {
-  red: "text-[#d9793f]",
-  purple: "text-[#7b61d1]",
-  blue: "text-[#4f87cb]",
-  orange: "text-[#d9944b]",
-  green: "text-[#4a9d73]",
+  red: "text-[#c98542]",
+  purple: "text-[#6f63cb]",
+  blue: "text-[#4f7fce]",
+  orange: "text-[#d18d4b]",
+  green: "text-[#4a9b74]",
+};
+
+const fileKindMeta: Record<
+  WorkFile["kind"],
+  {
+    label: string;
+    extension: string;
+    icon: typeof FileText;
+    iconClassName: string;
+  }
+> = {
+  doc: {
+    label: "DOC",
+    extension: "txt",
+    icon: FileText,
+    iconClassName: "text-[#5f6f8e]",
+  },
+  image: {
+    label: "IMG",
+    extension: "txt",
+    icon: FileImage,
+    iconClassName: "text-[#2f7ba6]",
+  },
+  video: {
+    label: "VID",
+    extension: "txt",
+    icon: Video,
+    iconClassName: "text-[#4652a5]",
+  },
+  markdown: {
+    label: "MD",
+    extension: "md",
+    icon: FileCode2,
+    iconClassName: "text-[#55637e]",
+  },
 };
 
 function EventIcon({ type }: { type: (typeof timelineEvents)[number]["type"] }) {
@@ -150,6 +190,8 @@ const flowSteps = [
   { kind: "show", id: "agent-card-2", wait: 190 },
   { kind: "show", id: "agent-card-3", wait: 190 },
   { kind: "show", id: "agent-card-4", wait: 190 },
+  { kind: "show", id: "agent-card-5", wait: 170 },
+  { kind: "show", id: "agent-card-6", wait: 170 },
   { kind: "cue", label: "Market Scout is analyzing competitor sources...", wait: 280, hold: 900 },
   { kind: "show", id: "event-1", wait: 210 },
   { kind: "show", id: "event-2", wait: 280 },
@@ -158,7 +200,14 @@ const flowSteps = [
   { kind: "show", id: "event-4", wait: 320 },
 ] as const;
 
-const chatAgentFlowIds = ["agent-card-1", "agent-card-2", "agent-card-3", "agent-card-4"] as const;
+const chatAgentFlowIds = [
+  "agent-card-1",
+  "agent-card-2",
+  "agent-card-3",
+  "agent-card-4",
+  "agent-card-5",
+  "agent-card-6",
+] as const;
 
 const allFlowIds = [
   "user-bubble",
@@ -232,9 +281,17 @@ const agentRuntimeTargetById: Record<
     nodeId: "asset-section-character-design-character-group-a-character-img-1",
     location: "Character Design · Visual Draft",
   },
+  "agent-visual-qa": {
+    nodeId: "asset-section-character-design-character-group-a-character-img-2",
+    location: "Character Design · Visual QA",
+  },
   "agent-review": {
     nodeId: "asset-section-character-design-character-group-b-character-img-2",
     location: "Character Design · QA Review",
+  },
+  "agent-hook-miner": {
+    nodeId: "asset-section-story-outline-outline-group-outline-a",
+    location: "Story Outline · Hook Miner",
   },
 };
 
@@ -248,7 +305,7 @@ export const LeftPanel = memo(function LeftPanel({
   demoMode = "A",
 }: LeftPanelProps) {
   const pathname = usePathname();
-  const [activeTab, setActiveTab] = useState<"chat" | "sandbox">("chat");
+  const [activeTab, setActiveTab] = useState<"chat" | "sandbox" | "files">("chat");
   const [showIntroTyping, setShowIntroTyping] = useState(false);
   const [visibleFlowIds, setVisibleFlowIds] = useState<string[]>([]);
   const [agentCue, setAgentCue] = useState<string | null>(null);
@@ -271,6 +328,10 @@ export const LeftPanel = memo(function LeftPanel({
   const [isAgentPickerOpen, setIsAgentPickerOpen] = useState(false);
   const [isRuntimeCapsuleExpanded, setIsRuntimeCapsuleExpanded] = useState(false);
   const [isTaskMenuExpanded, setIsTaskMenuExpanded] = useState(true);
+  const [expandedFileFolderIds, setExpandedFileFolderIds] = useState<string[]>(() =>
+    generatedFileFolders.map((folder) => folder.id),
+  );
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
   const agentPickerRef = useRef<HTMLDivElement | null>(null);
   const timersRef = useRef<number[]>([]);
   const rafsRef = useRef<number[]>([]);
@@ -279,6 +340,30 @@ export const LeftPanel = memo(function LeftPanel({
   const isHomeActive = pathname === "/home";
   const selectedAgent =
     chatAgentCards.find((agent) => agent.id === selectedAgentId) ?? chatAgentCards[0];
+  const allGeneratedFileIds = useMemo(
+    () =>
+      Array.from(
+        new Set(generatedFileFolders.flatMap((folder) => folder.files.map((file) => file.id))),
+      ),
+    [],
+  );
+  const generatedFilesById = useMemo(() => {
+    const map = new Map<string, WorkFile>();
+
+    generatedFileFolders.forEach((folder) => {
+      folder.files.forEach((file) => {
+        if (!map.has(file.id)) {
+          map.set(file.id, file);
+        }
+      });
+    });
+
+    return map;
+  }, []);
+  const selectedGeneratedFiles = useMemo(
+    () => selectedFileIds.map((fileId) => generatedFilesById.get(fileId)).filter(Boolean) as WorkFile[],
+    [generatedFilesById, selectedFileIds],
+  );
 
   const clearScheduledFlow = useCallback(() => {
     timersRef.current.forEach((timer) => window.clearTimeout(timer));
@@ -456,11 +541,19 @@ export const LeftPanel = memo(function LeftPanel({
       })),
     [],
   );
-  const runningRuntimeAgentCount = runtimeAgents.filter(
-    (item) => item.agent.status === "running",
-  ).length;
+  const workingRuntimeAgents = useMemo(
+    () => runtimeAgents.filter((item) => item.agent.status === "running"),
+    [runtimeAgents],
+  );
+  const runningRuntimeAgentCount = workingRuntimeAgents.length;
   const headerControlButtonClass =
     "grid h-7 w-7 place-items-center rounded-full border border-[#e2e6ee] bg-[#eceff4] text-[#8e97a7] shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] transition hover:bg-[#e8ecf3] hover:text-[#6f7a8d]";
+
+  const handleTabChange = (nextTab: "chat" | "sandbox" | "files") => {
+    setActiveTab(nextTab);
+    setIsAgentPickerOpen(false);
+    setIsRuntimeCapsuleExpanded(false);
+  };
 
   const handleSendPrompt = () => {
     const normalizedPrompt = composerValue.trim();
@@ -483,10 +576,68 @@ export const LeftPanel = memo(function LeftPanel({
     const runtimeTarget = agentRuntimeTargetById[agent.id];
     if (runtimeTarget) {
       onLocateAgentRuntime?.(agent, runtimeTarget.nodeId);
-    } else {
-      onOpenAgentDetails?.(agent);
     }
     setIsRuntimeCapsuleExpanded(false);
+  };
+
+  const toggleFileFolderExpanded = (folderId: string) => {
+    setExpandedFileFolderIds((prev) =>
+      prev.includes(folderId) ? prev.filter((id) => id !== folderId) : [...prev, folderId],
+    );
+  };
+
+  const toggleFileSelected = (fileId: string) => {
+    setSelectedFileIds((prev) =>
+      prev.includes(fileId) ? prev.filter((id) => id !== fileId) : [...prev, fileId],
+    );
+  };
+
+  const toggleFolderFileSelected = (folderId: string) => {
+    const folder = generatedFileFolders.find((item) => item.id === folderId);
+    if (!folder) {
+      return;
+    }
+
+    const folderFileIds = Array.from(new Set(folder.files.map((file) => file.id)));
+
+    setSelectedFileIds((prev) => {
+      const allSelected = folderFileIds.every((id) => prev.includes(id));
+
+      if (allSelected) {
+        return prev.filter((id) => !folderFileIds.includes(id));
+      }
+
+      return Array.from(new Set([...prev, ...folderFileIds]));
+    });
+  };
+
+  const downloadFilePayload = (file: WorkFile) => {
+    const safeName = file.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const meta = fileKindMeta[file.kind];
+    const blob = new Blob(
+      [
+        `Title: ${file.title}\nType: ${meta.label}\nUpdated: ${file.updatedAt}\n\nSummary:\n${file.note}\n`,
+      ],
+      { type: "text/plain;charset=utf-8" },
+    );
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${safeName || "generated-file"}.${meta.extension}`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.setTimeout(() => URL.revokeObjectURL(url), 500);
+  };
+
+  const handleDownloadSelectedFiles = () => {
+    if (!selectedGeneratedFiles.length) {
+      return;
+    }
+
+    selectedGeneratedFiles.forEach((file, index) => {
+      window.setTimeout(() => downloadFilePayload(file), index * 80);
+    });
   };
 
   return (
@@ -498,7 +649,7 @@ export const LeftPanel = memo(function LeftPanel({
           <div className="inline-flex rounded-full border border-[#e2e6ee] bg-[#eceff4] p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
             <button
               type="button"
-              onClick={() => setActiveTab("chat")}
+              onClick={() => handleTabChange("chat")}
               className={cn(
                   "flex h-7 min-w-[60px] items-center justify-center gap-1 rounded-full px-2 text-[10px] font-semibold transition",
                 activeTab === "chat"
@@ -511,7 +662,7 @@ export const LeftPanel = memo(function LeftPanel({
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab("sandbox")}
+              onClick={() => handleTabChange("sandbox")}
               className={cn(
                   "flex h-7 min-w-[60px] items-center justify-center gap-1 rounded-full px-2 text-[10px] font-semibold transition",
                 activeTab === "sandbox"
@@ -521,6 +672,19 @@ export const LeftPanel = memo(function LeftPanel({
             >
               <Box className="h-3.5 w-3.5" />
               SandBox
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabChange("files")}
+              className={cn(
+                  "flex h-7 min-w-[56px] items-center justify-center gap-1 rounded-full px-2 text-[10px] font-semibold transition",
+                activeTab === "files"
+                  ? "bg-white text-[#141821] shadow-[0_2px_8px_rgba(15,23,42,0.08)]"
+                  : "text-[#adb3bf] hover:text-[#8e96a5]",
+              )}
+            >
+              <Folder className="h-3.5 w-3.5" />
+              Files
             </button>
           </div>
 
@@ -552,33 +716,16 @@ export const LeftPanel = memo(function LeftPanel({
         </header>
 
         <div className="chat-scrollbar mt-2 flex-1 overflow-y-auto pr-0">
-          {activeTab === "chat" ? (
-            <div className="space-y-3 rounded-2xl px-0.5 py-1">
-              <div className="rounded-2xl border border-[#e5e9f1] bg-white/85 p-2.5 shadow-[0_10px_24px_rgba(15,23,42,0.07)]">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex -space-x-2">
-                    <div className="h-7 w-7 rounded-full bg-[linear-gradient(135deg,#c084fc,#60a5fa)] ring-2 ring-white" />
-                    <div className="h-7 w-7 rounded-full bg-[linear-gradient(135deg,#34d399,#93c5fd)] ring-2 ring-white" />
-                    <div className="h-7 w-7 rounded-full bg-[linear-gradient(135deg,#bfdbfe,#fde68a)] ring-2 ring-white" />
-                    <div className="h-7 w-7 rounded-full bg-[linear-gradient(135deg,#dbeafe,#f5d0fe)] ring-2 ring-white" />
-                  </div>
-                  <div className="min-w-0">
-                    <h2 className="text-[15px] font-bold leading-6 text-[#141821]">Agent Team</h2>
-                    <p className="mt-0.5 text-[11px] text-[#8f98a8]">Updated 3 minutes ago</p>
-                  </div>
-                </div>
-
-                <div className="mt-2.5 grid grid-cols-3 gap-1.5">
-                  {chatGalleryGradients.map((gradient, index) => (
-                    <div
-                      key={`${gradient}-${index}`}
-                      className="h-12 rounded-xl border border-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]"
-                      style={{ backgroundImage: gradient }}
-                    />
-                  ))}
-                </div>
-              </div>
-
+          <AnimatePresence mode="wait" initial={false}>
+            {activeTab === "chat" ? (
+            <motion.div
+              key="tab-chat"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ type: "spring", stiffness: 260, damping: 24 }}
+              className="space-y-3 rounded-2xl px-0.5 py-1"
+            >
               <AnimatePresence mode="wait" initial={false}>
                 {showIntroTyping ? (
                   <motion.div
@@ -644,8 +791,8 @@ export const LeftPanel = memo(function LeftPanel({
                 ) : null}
               </AnimatePresence>
 
-              <div className="rounded-2xl border border-[#e4e8f0] bg-white/78 p-2.5">
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8a93a3]">
+              <div className="px-1 py-0.5">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#98a1b0]">
                   Mission Brief
                 </p>
                 <div className="space-y-1.5">
@@ -658,9 +805,9 @@ export const LeftPanel = memo(function LeftPanel({
                           animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                           exit={{ opacity: 0, y: -6 }}
                           transition={{ type: "spring", stiffness: 250, damping: 24 }}
-                          className="flex items-start gap-2 rounded-xl bg-[#f3f6fb] px-2 py-1.5 text-[11px] leading-5 text-[#253044]"
+                          className="flex items-start gap-2 px-1 py-1 text-[11px] leading-5 text-[#4a5569]"
                         >
-                          <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-semibold text-[#7f899c]">
+                          <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#e3e8f0] bg-[#f7f9fc] text-[10px] font-semibold text-[#8c95a8]">
                             {index + 1}
                           </span>
                           <p>{item.text}</p>
@@ -678,19 +825,20 @@ export const LeftPanel = memo(function LeftPanel({
                     animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ type: "spring", stiffness: 250, damping: 24 }}
-                    className="rounded-2xl border border-[#e4e8f0] bg-white/80 p-2.5"
+                    className="px-1 py-0.5"
                   >
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.09em] text-[#8b93a2]">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.09em] text-[#98a1b0]">
                         Agent Calls
                       </p>
-                      <span className="text-[10px] font-semibold text-[#99a1b0]">
+                      <span className="text-[10px] font-semibold text-[#a5adbb]">
                         {chatAgentFlowIds.filter((id) => isVisible(id)).length}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-1.5">
                       {chatAgentCards.map((agent, index) => {
                         const flowId = chatAgentFlowIds[index];
+                        const isSubAgent = agent.level === "sub";
 
                         if (!flowId || !isVisible(flowId)) {
                           return null;
@@ -710,20 +858,32 @@ export const LeftPanel = memo(function LeftPanel({
                             }}
                             whileHover={{ y: -2 }}
                             onClick={() => onOpenAgentDetails?.(agent)}
-                            className="rounded-2xl border border-[#eceff4] bg-white/92 p-2 text-left shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition hover:shadow-[0_12px_24px_rgba(15,23,42,0.12)]"
+                            className={cn(
+                              "rounded-2xl border p-2 text-left transition",
+                              isSubAgent
+                                ? "border-[#dce6f8] bg-[#f4f8ff]/90 hover:bg-[#eef5ff]"
+                                : "border-[#e7ecf3] bg-white/62 hover:bg-white/84",
+                            )}
                           >
                             <div className="flex items-center gap-1.5">
                               <span
                                 className={cn(
-                                  "h-6 w-6 rounded-full border border-white/70 shadow-[0_3px_10px_rgba(15,23,42,0.16)]",
+                                  "h-6 w-6 rounded-full border border-white/70",
                                   agentDotScheme[agent.color],
                                 )}
                               />
-                              <p className="text-[12px] font-bold leading-5 text-[#151b25]">
-                                {agent.name}
-                              </p>
+                              <div className="min-w-0">
+                                <p className="truncate text-[12px] font-bold leading-5 text-[#151b25]">
+                                  {agent.name}
+                                </p>
+                                {isSubAgent ? (
+                                  <span className="inline-flex rounded-full bg-[#e7eefc] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.06em] text-[#5f77b8]">
+                                    Sub Agent
+                                  </span>
+                                ) : null}
+                              </div>
                             </div>
-                            <p className="mt-1 text-[10px] leading-4 text-[#8e98a8]">
+                            <p className={cn("mt-1 text-[10px] leading-4 text-[#8e98a8]", isSubAgent && "text-[#7784a0]")}>
                               {agent.summary}
                             </p>
                           </motion.button>
@@ -742,9 +902,9 @@ export const LeftPanel = memo(function LeftPanel({
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.98 }}
                     transition={{ type: "spring", stiffness: 260, damping: 24 }}
-                    className="rounded-xl border border-[#e2e6ee] bg-white/75 px-2.5 py-2"
+                    className="rounded-lg border border-[#e7ebf2] bg-white/58 px-2 py-1.5"
                   >
-                    <div className="flex items-center gap-2 text-[10px] font-medium text-[#738096]">
+                    <div className="flex items-center gap-2 text-[10px] font-medium text-[#8090a6]">
                       <span>{agentCue}</span>
                       <div className="ml-1 flex items-center gap-1">
                         {[0, 1, 2].map((dot) => (
@@ -766,12 +926,12 @@ export const LeftPanel = memo(function LeftPanel({
                 ) : null}
               </AnimatePresence>
 
-              <div className="rounded-2xl border border-[#e4e8f0] bg-white/74 p-2.5">
+              <div className="px-1 py-0.5">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8b93a2]">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#98a1b0]">
                     Execution Log
                   </p>
-                  <span className="text-[10px] font-semibold text-[#9ea6b5]">
+                  <span className="text-[10px] font-semibold text-[#a5adbb]">
                     {timelineEvents.filter((event) => isVisible(event.id)).length}/{timelineEvents.length}
                   </span>
                 </div>
@@ -823,11 +983,13 @@ export const LeftPanel = memo(function LeftPanel({
                   />
                 ))}
               </div>
-            </div>
-          ) : (
+            </motion.div>
+          ) : activeTab === "sandbox" ? (
             <motion.div
+              key="tab-sandbox"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
               transition={{ type: "spring", stiffness: 260, damping: 24 }}
               className="rounded-2xl px-0.5 py-1.5"
             >
@@ -899,283 +1061,457 @@ export const LeftPanel = memo(function LeftPanel({
                 </div>
               </div>
             </motion.div>
-          )}
-        </div>
-
-        <footer className="pt-1">
-          <div ref={agentPickerRef} className="relative">
-            <div className="mb-2">
-              <div className="relative inline-flex">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsRuntimeCapsuleExpanded((prev) => !prev);
-                    setIsAgentPickerOpen(false);
-                  }}
-                  className="inline-flex items-center gap-2 rounded-full border border-[#e4e9f1] bg-white/85 px-2.5 py-1.5 shadow-[0_6px_12px_rgba(15,23,42,0.06)] backdrop-blur-sm transition hover:bg-white"
-                  aria-expanded={isRuntimeCapsuleExpanded}
-                  aria-label="Toggle agent runtime list"
-                >
-                  <span className="grid h-5 w-5 place-items-center rounded-full border border-[#e5e9f0] bg-[#f7f9fc] text-[#a1aabd]">
-                    <Bot className="h-3.5 w-3.5" />
-                  </span>
-                  <div className="text-left">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8e97a8]">
-                      Agent Runtime
-                    </p>
-                    <p className="text-[11px] font-medium text-[#4f5b71]">
-                      {runningRuntimeAgentCount} background agents
-                    </p>
-                  </div>
-                  <ChevronDown
-                    className={cn(
-                      "h-3.5 w-3.5 text-[#98a1b2] transition-transform",
-                      isRuntimeCapsuleExpanded && "rotate-180",
-                    )}
-                  />
-                </button>
-
-                <AnimatePresence>
-                  {isRuntimeCapsuleExpanded ? (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                      transition={{ type: "spring", stiffness: 280, damping: 24 }}
-                      className="absolute bottom-[calc(100%+10px)] left-0 z-50 w-[320px] rounded-2xl border border-white/70 bg-white/62 p-2 shadow-[0_10px_20px_rgba(15,23,42,0.12)] backdrop-blur-xl"
-                    >
-                      <div className="flex items-center justify-between px-1 pb-1">
-                        <p className="text-[10px] font-semibold text-[#8f98a9]">
-                          {runtimeAgents.length} background agents (@ to tag agents)
-                        </p>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1 text-[10px] font-medium text-[#a0a8b7] transition hover:text-[#7f8a9d]"
-                          aria-label="Runtime settings"
-                        >
-                          Settings
-                          <ArrowUpRight className="h-3 w-3" />
-                        </button>
-                      </div>
-                      <div className="space-y-0.5">
-                        {runtimeAgents.map(({ agent, runtimeTarget }) => {
-                          const statusText =
-                            agent.status === "running"
-                              ? "is thinking"
-                              : agent.status === "done"
-                                ? "is ready"
-                                : "is awaiting instruction";
-
-                          return (
-                            <button
-                              key={`runtime-row-${agent.id}`}
-                              type="button"
-                              onClick={() => handleRuntimeAgentLocate(agent)}
-                              className="group flex w-full items-center justify-between rounded-xl px-2 py-1.5 text-left transition hover:bg-[#f5f8fc]"
-                            >
-                              <span className="min-w-0 flex-1 truncate text-[12px]">
-                                <span className={cn("font-semibold", agentNameColorScheme[agent.color])}>
-                                  {agent.name}
-                                </span>{" "}
-                                <span className="text-[#9ba4b4]">{statusText}</span>
-                              </span>
-                              <span className="ml-3 inline-flex items-center gap-1 text-[11px] font-medium text-[#a3acbb] transition group-hover:text-[#7e8aa0]">
-                                Open
-                                <ArrowUpRight className="h-3 w-3" />
-                              </span>
-                              <span className="sr-only">
-                                Locate {agent.name} at {runtimeTarget?.location ?? "canvas node"}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <p className="px-2 pt-1 text-[10px] text-[#b0b8c6]">
-                        Click an agent to locate its working position on canvas.
+          ) : (
+            <motion.div
+              key="tab-files"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ type: "spring", stiffness: 260, damping: 24 }}
+              className="rounded-2xl px-0.5 py-1.5"
+            >
+              <div className="rounded-2xl border border-[#e3e7ef] bg-white/88 p-3 shadow-[0_10px_25px_rgba(15,23,42,0.08)]">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="grid h-8 w-8 place-items-center rounded-xl bg-[#eef4ff] text-[#3d66d3]">
+                      <Folder className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-bold text-[#141821]">File Manager</p>
+                      <p className="text-xs text-[#8a93a3]">
+                        {allGeneratedFileIds.length} generated files · {generatedFileFolders.length} folders
                       </p>
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
-              </div>
-            </div>
-
-            <div className="rounded-[22px] border border-[#e2e5eb] bg-[#f4f5f7] p-2.5 shadow-[0_8px_18px_rgba(15,23,42,0.08)]">
-              <button
-                type="button"
-                onClick={() => setIsTaskMenuExpanded((prev) => !prev)}
-                className="flex w-full items-center justify-between gap-2 rounded-xl px-1 py-0.5 text-left"
-                aria-expanded={isTaskMenuExpanded}
-                aria-label="Toggle processing tasks"
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <ProcessingTaskStatusIcon status={activeProcessingTask?.status ?? "queued"} />
-                  <span className="truncate text-[11px] font-medium text-[#8c94a3]">
-                    {activeProcessingTask?.label ?? "No active task"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-semibold text-[#9aa2b0]">
-                    {completedTaskCount}/{processingTasks.length}
-                  </span>
-                  <ChevronDown
-                    className={cn(
-                      "h-3.5 w-3.5 text-[#98a0ae] transition-transform",
-                      isTaskMenuExpanded && "rotate-180",
-                    )}
-                  />
-                </div>
-              </button>
-
-              <AnimatePresence initial={false}>
-                {isTaskMenuExpanded ? (
-                  <motion.ul
-                    initial={{ opacity: 0, y: 6, height: 0 }}
-                    animate={{ opacity: 1, y: 0, height: "auto" }}
-                    exit={{ opacity: 0, y: 4, height: 0 }}
-                    transition={{ type: "spring", stiffness: 250, damping: 24 }}
-                    className="mt-1.5 space-y-0.5 overflow-hidden border-t border-[#e6e9ef] pt-1.5"
-                  >
-                    {processingTasks.map((task) => (
-                      <li key={task.id} className="flex items-center gap-2 rounded-lg px-1.5 py-0.5">
-                        <ProcessingTaskStatusIcon status={task.status} />
-                        <span
-                          className={cn(
-                            "truncate text-[11px]",
-                            task.status === "done"
-                              ? "text-[#9aa2b0]"
-                              : task.status === "running"
-                                ? "font-medium text-[#59657a]"
-                                : "text-[#b0b8c6]",
-                          )}
-                        >
-                          {task.label}
-                        </span>
-                      </li>
-                    ))}
-                  </motion.ul>
-                ) : null}
-              </AnimatePresence>
-
-              <div className="mt-1.5 border-t border-[#e6e9ef] pt-1.5">
-                <div className="flex h-7 items-center gap-2 px-1">
-                  <AtSign className="h-3.5 w-3.5 text-[#a6adba]" />
-                  <input
-                    value={composerValue}
-                    onChange={(event) => setComposerValue(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.shiftKey) {
-                        event.preventDefault();
-                        handleSendPrompt();
-                      }
-                    }}
-                    className="h-full flex-1 border-none bg-transparent text-[13px] text-[#636c7e] placeholder:text-[#a8afbc] outline-none"
-                    placeholder="@ an agent · Ask me anything..."
-                    aria-label="Ask me anything"
-                  />
-                </div>
-
-                <div className="mt-1.5 flex items-center justify-between gap-2 px-1">
-                  <div className="relative flex items-center gap-2">
-                    <AnimatePresence>
-                      {isAgentPickerOpen ? (
-                        <motion.div
-                          initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                          transition={{ type: "spring", stiffness: 280, damping: 24 }}
-                          className="absolute bottom-[calc(100%+10px)] left-0 z-50 w-[252px] rounded-2xl border border-[#e3e8f1] bg-white p-2 shadow-[0_16px_30px_rgba(15,23,42,0.16)]"
-                        >
-                          <p className="px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8b95a7]">
-                            Agent Role
-                          </p>
-                          <div className="space-y-1">
-                            {chatAgentCards.map((agent) => (
-                              <button
-                                key={agent.id}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedAgentId(agent.id);
-                                  setIsAgentPickerOpen(false);
-                                }}
-                                className={cn(
-                                  "flex w-full items-start gap-2 rounded-xl px-2 py-2 text-left transition",
-                                  selectedAgentId === agent.id
-                                    ? "bg-[#eef4ff]"
-                                    : "hover:bg-[#f4f7fc]",
-                                )}
-                              >
-                                <span
-                                  className={cn(
-                                    "mt-0.5 h-6 w-6 shrink-0 rounded-full border border-white/70 shadow-[0_2px_8px_rgba(15,23,42,0.12)]",
-                                    agentDotScheme[agent.color],
-                                  )}
-                                />
-                                <span className="min-w-0 flex-1">
-                                  <span className="block truncate text-sm font-semibold text-[#1b2332]">
-                                    {agent.name}
-                                  </span>
-                                  <span className="block truncate text-xs text-[#7a869b]">
-                                    {agent.summary}
-                                  </span>
-                                </span>
-                                {selectedAgentId === agent.id ? (
-                                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#3a64d2]" />
-                                ) : null}
-                              </button>
-                            ))}
-                          </div>
-                        </motion.div>
-                      ) : null}
-                    </AnimatePresence>
-
-                    <button
-                      type="button"
-                      className="grid h-8 w-8 place-items-center rounded-full bg-[#e4e6eb] text-[#2f3643] transition hover:bg-[#d9dde5]"
-                      aria-label="Attach"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsAgentPickerOpen((prev) => !prev);
-                        setIsRuntimeCapsuleExpanded(false);
-                      }}
-                      className="relative inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#e4e6eb] text-[#2f3643] transition hover:bg-[#d9dde5]"
-                      aria-label="Choose agent role"
-                      aria-expanded={isAgentPickerOpen}
-                    >
-                      <span
-                        className={cn(
-                          "h-5 w-5 rounded-full border border-white/70",
-                          selectedAgent ? agentDotScheme[selectedAgent.color] : "bg-[#cbd5e1]",
-                        )}
-                      />
-                    </button>
-
-                    <button
-                      type="button"
-                      className="grid h-8 w-8 place-items-center rounded-full bg-[#e4e6eb] text-[#2f3643] transition hover:bg-[#d9dde5]"
-                      aria-label="Composer options"
-                    >
-                      <SlidersHorizontal className="h-4 w-4" />
-                    </button>
+                    </div>
                   </div>
+                  <span className="rounded-full bg-[#edf3ff] px-2 py-1 text-[11px] font-semibold text-[#3a64d2]">
+                    {selectedFileIds.length} selected
+                  </span>
+                </div>
 
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={handleSendPrompt}
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#0f1117] text-white shadow-[0_8px_16px_rgba(15,23,42,0.22)] transition hover:-translate-y-0.5 hover:bg-[#161a22]"
-                    aria-label="Send"
+                    onClick={() => setSelectedFileIds(allGeneratedFileIds)}
+                    className="rounded-full border border-[#dfe5ef] bg-white px-2.5 py-1 text-[11px] font-medium text-[#5e6a82] transition hover:border-[#cfd8e7]"
                   >
-                    <ArrowUp className="h-4 w-4" />
+                    Select all
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFileIds([])}
+                    disabled={!selectedFileIds.length}
+                    className="rounded-full border border-[#dfe5ef] bg-white px-2.5 py-1 text-[11px] font-medium text-[#5e6a82] transition hover:border-[#cfd8e7] disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadSelectedFiles}
+                    disabled={!selectedGeneratedFiles.length}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#111827] px-3 py-1 text-[11px] font-semibold text-white transition hover:bg-[#1f2937] disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download selected
+                  </button>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  {generatedFileFolders.map((folder) => {
+                    const folderFileIds = Array.from(
+                      new Set(folder.files.map((file) => file.id)),
+                    );
+                    const selectedCount = folderFileIds.filter((fileId) =>
+                      selectedFileIds.includes(fileId),
+                    ).length;
+                    const folderAllSelected =
+                      folderFileIds.length > 0 && selectedCount === folderFileIds.length;
+                    const isExpanded = expandedFileFolderIds.includes(folder.id);
+
+                    return (
+                      <div
+                        key={folder.id}
+                        className="rounded-xl border border-[#e7ebf2] bg-[#f8fafd]"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleFileFolderExpanded(folder.id)}
+                          className="flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left"
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <ChevronDown
+                              className={cn(
+                                "h-3.5 w-3.5 shrink-0 text-[#95a0b3] transition-transform",
+                                isExpanded && "rotate-180",
+                              )}
+                            />
+                            <Folder className="h-4 w-4 shrink-0 text-[#6f7f9a]" />
+                            <span className="min-w-0">
+                              <span className="block truncate text-[12px] font-semibold text-[#1d2737]">
+                                {folder.title}
+                              </span>
+                              <span className="block text-[10px] text-[#8e98a9]">
+                                {folder.updatedAt} · {folder.files.length} files
+                              </span>
+                            </span>
+                          </span>
+                          <span className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                                folder.status === "thinking"
+                                  ? "bg-[#eaf2ff] text-[#3368d6]"
+                                  : "bg-[#eaf8ef] text-[#2f855a]",
+                              )}
+                            >
+                              {folder.status === "thinking" ? "Working" : "Done"}
+                            </span>
+                            <span className="text-[10px] font-semibold text-[#98a1b2]">
+                              {selectedCount}/{folderFileIds.length}
+                            </span>
+                          </span>
+                        </button>
+
+                        <AnimatePresence initial={false}>
+                          {isExpanded ? (
+                            <motion.div
+                              initial={{ opacity: 0, y: 6, height: 0 }}
+                              animate={{ opacity: 1, y: 0, height: "auto" }}
+                              exit={{ opacity: 0, y: 4, height: 0 }}
+                              transition={{ type: "spring", stiffness: 250, damping: 24 }}
+                              className="overflow-hidden border-t border-[#e7ebf2] px-2.5 pb-2 pt-1.5"
+                            >
+                              <div className="mb-1.5 flex items-center justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleFolderFileSelected(folder.id)}
+                                  className="rounded-full border border-[#d8e0eb] bg-white px-2 py-0.5 text-[10px] font-medium text-[#69758b] transition hover:border-[#c8d2e2]"
+                                >
+                                  {folderAllSelected ? "Unselect folder" : "Select folder"}
+                                </button>
+                              </div>
+                              <div className="space-y-1">
+                                {folder.files.map((file) => {
+                                  const isSelected = selectedFileIds.includes(file.id);
+                                  const kindMeta = fileKindMeta[file.kind];
+                                  const FileKindIcon = kindMeta.icon;
+
+                                  return (
+                                    <button
+                                      key={`${folder.id}-${file.id}`}
+                                      type="button"
+                                      onClick={() => toggleFileSelected(file.id)}
+                                      className={cn(
+                                        "flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition",
+                                        isSelected
+                                          ? "border-[#cddbf3] bg-[#edf4ff]"
+                                          : "border-[#e5eaf2] bg-white hover:border-[#d6deeb]",
+                                      )}
+                                    >
+                                      <span
+                                        className={cn(
+                                          "grid h-4 w-4 shrink-0 place-items-center rounded border",
+                                          isSelected
+                                            ? "border-[#4c78d5] bg-[#4c78d5] text-white"
+                                            : "border-[#c8cfdb] bg-white text-transparent",
+                                        )}
+                                      >
+                                        <Check className="h-3 w-3" />
+                                      </span>
+                                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#f0f3f8] px-1.5 py-0.5 text-[10px] font-semibold text-[#677286]">
+                                        <FileKindIcon
+                                          className={cn(
+                                            "h-3 w-3",
+                                            kindMeta.iconClassName,
+                                          )}
+                                        />
+                                        {kindMeta.label}
+                                      </span>
+                                      <span className="min-w-0 flex-1">
+                                        <span className="block truncate text-[12px] font-medium text-[#1f2937]">
+                                          {file.title}
+                                        </span>
+                                        <span className="block truncate text-[10px] text-[#8c96a8]">
+                                          {file.note}
+                                        </span>
+                                      </span>
+                                      <span className="text-[10px] text-[#9ba5b6]">
+                                        {file.updatedAt}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </motion.div>
+                          ) : null}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          )}
+          </AnimatePresence>
+        </div>
+
+        {activeTab !== "files" ? (
+          <footer className="pt-1">
+            <div ref={agentPickerRef} className="relative">
+              <div className="relative">
+                <div className="mx-2 mb-3">
+                  <div className="rounded-2xl border border-[#e3e7ee] bg-white/88 px-2 py-1.5 shadow-[0_8px_16px_rgba(15,23,42,0.08)] backdrop-blur-md">
+                    <button
+                      type="button"
+                      onClick={() => setIsTaskMenuExpanded((prev) => !prev)}
+                      className="flex w-full items-center justify-between gap-2 rounded-lg px-1 py-0.5 text-left"
+                      aria-expanded={isTaskMenuExpanded}
+                      aria-label="Toggle processing tasks"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <ProcessingTaskStatusIcon status={activeProcessingTask?.status ?? "queued"} />
+                        <span className="truncate text-[11px] font-medium text-[#8c94a3]">
+                          {activeProcessingTask?.label ?? "No active task"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold text-[#9aa2b0]">
+                          {completedTaskCount}/{processingTasks.length}
+                        </span>
+                        <ChevronDown
+                          className={cn(
+                            "h-3.5 w-3.5 text-[#98a0ae] transition-transform",
+                            isTaskMenuExpanded && "rotate-180",
+                          )}
+                        />
+                      </div>
+                    </button>
+
+                    <AnimatePresence initial={false}>
+                      {isTaskMenuExpanded ? (
+                        <motion.ul
+                          initial={{ opacity: 0, y: 6, height: 0 }}
+                          animate={{ opacity: 1, y: 0, height: "auto" }}
+                          exit={{ opacity: 0, y: 4, height: 0 }}
+                          transition={{ type: "spring", stiffness: 250, damping: 24 }}
+                          className="mt-1 space-y-0.5 overflow-hidden border-t border-[#e6e9ef] pt-1"
+                        >
+                          {processingTasks.map((task) => (
+                            <li key={task.id} className="flex items-center gap-2 rounded-lg px-1.5 py-0.5">
+                              <ProcessingTaskStatusIcon status={task.status} />
+                              <span
+                                className={cn(
+                                  "truncate text-[11px]",
+                                  task.status === "done"
+                                    ? "text-[#9aa2b0]"
+                                    : task.status === "running"
+                                      ? "font-medium text-[#59657a]"
+                                      : "text-[#b0b8c6]",
+                                )}
+                              >
+                                {task.label}
+                              </span>
+                            </li>
+                          ))}
+                        </motion.ul>
+                      ) : null}
+                    </AnimatePresence>
+                  </div>
+                </div>
+
+                <div className="mt-1 rounded-[22px] border border-[#e2e7ef] bg-white/90 px-2 py-2 shadow-[0_10px_20px_rgba(15,23,42,0.07)] backdrop-blur-[6px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsRuntimeCapsuleExpanded((prev) => !prev);
+                      setIsAgentPickerOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2 px-1 py-0.5 text-left transition hover:opacity-80"
+                    aria-expanded={isRuntimeCapsuleExpanded}
+                    aria-label="Toggle agent runtime list"
+                  >
+                    <span className="grid h-5 w-5 place-items-center text-[#a1a9b8]">
+                      <Bot className="h-3.5 w-3.5" />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#8a93a4]">
+                      {runningRuntimeAgentCount} Agents running
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        "h-3.5 w-3.5 text-[#aab3c2] transition-transform",
+                        isRuntimeCapsuleExpanded && "rotate-180",
+                      )}
+                    />
+                  </button>
+
+                  <AnimatePresence initial={false}>
+                    {isRuntimeCapsuleExpanded ? (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6, height: 0 }}
+                        animate={{ opacity: 1, y: 0, height: "auto" }}
+                        exit={{ opacity: 0, y: 4, height: 0 }}
+                        transition={{ type: "spring", stiffness: 260, damping: 24 }}
+                        className="mt-1 overflow-hidden border-t border-[#e6eaf0] pb-0.5 pt-1"
+                      >
+                        <div className="space-y-0.5">
+                          {workingRuntimeAgents.map(({ agent, runtimeTarget }) => {
+                            return (
+                              <button
+                                key={`runtime-row-${agent.id}`}
+                                type="button"
+                                onClick={() => handleRuntimeAgentLocate(agent)}
+                                className="group flex w-full items-center justify-between gap-2 rounded-md px-1 py-0.5 text-left transition hover:bg-[#f3f6fb]/70"
+                              >
+                                <span className="min-w-0 flex-1 truncate text-[12px]">
+                                  <span className={cn("font-semibold", agentNameColorScheme[agent.color])}>
+                                    {agent.name}
+                                  </span>{" "}
+                                  <span className="text-[#9aa3b2]">is thinking</span>
+                                </span>
+                                <span className="ml-3 inline-flex items-center gap-1 text-[10.5px] font-medium text-[#a2acbb] transition group-hover:text-[#7f8ea2]">
+                                  Open
+                                  <ArrowUpRight className="h-3 w-3" />
+                                </span>
+                                <span className="sr-only">
+                                  Locate {agent.name} at {runtimeTarget?.location ?? "canvas node"}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    ) : null}
+                  </AnimatePresence>
+
+                  <div className="mt-1.5 border-t border-[#e6e9ef] pt-1.5">
+                    <div className="flex h-6 items-center px-1">
+                      <input
+                        value={composerValue}
+                        onChange={(event) => setComposerValue(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" && !event.shiftKey) {
+                            event.preventDefault();
+                            handleSendPrompt();
+                          }
+                        }}
+                        className="h-full flex-1 border-none bg-transparent text-[13px] text-[#636c7e] placeholder:text-[#a8afbc] outline-none"
+                        placeholder="@ an agent · Ask me anything..."
+                        aria-label="Ask me anything"
+                      />
+                    </div>
+
+                    <div className="mt-1 flex items-center justify-between gap-2 px-1">
+                      <div className="relative flex items-center gap-2">
+                        <AnimatePresence>
+                          {isAgentPickerOpen ? (
+                            <motion.div
+                              initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                              transition={{ type: "spring", stiffness: 280, damping: 24 }}
+                              className="absolute bottom-[calc(100%+8px)] left-0 z-50 w-[228px] rounded-xl border border-[#e3e8f1] bg-white p-1.5 shadow-[0_10px_20px_rgba(15,23,42,0.12)]"
+                            >
+                              <p className="px-1.5 pb-0.5 pt-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[#8b95a7]">
+                                Agent / Sub Agent
+                              </p>
+                              <div className="space-y-0.5">
+                                {chatAgentCards.map((agent) => {
+                                  const isSubAgent = agent.level === "sub";
+
+                                  return (
+                                    <button
+                                      key={agent.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedAgentId(agent.id);
+                                        setIsAgentPickerOpen(false);
+                                      }}
+                                      className={cn(
+                                        "flex w-full items-start gap-1.5 rounded-lg px-1.5 py-1.5 text-left transition",
+                                        selectedAgentId === agent.id
+                                          ? "bg-[#eef4ff]"
+                                          : "hover:bg-[#f4f7fc]",
+                                      )}
+                                    >
+                                      <span
+                                        className={cn(
+                                          "mt-0.5 h-5 w-5 shrink-0 rounded-full border border-white/70 shadow-[0_2px_6px_rgba(15,23,42,0.1)]",
+                                          agentDotScheme[agent.color],
+                                        )}
+                                      />
+                                      <span className="min-w-0 flex-1">
+                                        <span className="block truncate text-[13px] font-semibold leading-5 text-[#1b2332]">
+                                          {agent.name}
+                                          {isSubAgent ? (
+                                            <span className="ml-1 rounded-full bg-[#e8eefb] px-1 py-0.5 text-[9px] font-semibold uppercase tracking-[0.04em] text-[#6075b1]">
+                                              Sub
+                                            </span>
+                                          ) : null}
+                                        </span>
+                                        <span className="block truncate text-[11px] leading-4 text-[#7a869b]">
+                                          {agent.summary}
+                                        </span>
+                                      </span>
+                                      {selectedAgentId === agent.id ? (
+                                        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#3a64d2]" />
+                                      ) : null}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </motion.div>
+                          ) : null}
+                        </AnimatePresence>
+
+                        <button
+                          type="button"
+                          className="grid h-8 w-8 place-items-center rounded-full bg-[#e4e6eb] text-[#2f3643] transition hover:bg-[#d9dde5]"
+                          aria-label="Attach"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAgentPickerOpen((prev) => !prev);
+                            setIsRuntimeCapsuleExpanded(false);
+                          }}
+                          className="relative inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#e4e6eb] text-[#2f3643] transition hover:bg-[#d9dde5]"
+                          aria-label="Choose agent role"
+                          aria-expanded={isAgentPickerOpen}
+                        >
+                          <span
+                            className={cn(
+                              "h-5 w-5 rounded-full border border-white/70",
+                              selectedAgent ? agentDotScheme[selectedAgent.color] : "bg-[#cbd5e1]",
+                            )}
+                          />
+                        </button>
+
+                        <button
+                          type="button"
+                          className="grid h-8 w-8 place-items-center rounded-full bg-[#e4e6eb] text-[#2f3643] transition hover:bg-[#d9dde5]"
+                          aria-label="Composer options"
+                        >
+                          <SlidersHorizontal className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSendPrompt}
+                        className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#0f1117] text-white shadow-[0_8px_16px_rgba(15,23,42,0.22)] transition hover:-translate-y-0.5 hover:bg-[#161a22]"
+                        aria-label="Send"
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </footer>
+          </footer>
+        ) : null}
       </section>
     </div>
   );

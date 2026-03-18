@@ -1,18 +1,22 @@
 import { cn } from "@/lib/utils";
 
 interface PlaceholderCardProps {
-  size?: "sm" | "md" | "lg";
+  ratio?: "square" | "landscape" | "portrait";
+  className?: string;
 }
 
-export function PlaceholderCard({ size = "md" }: PlaceholderCardProps) {
+export function PlaceholderCard({ ratio = "square", className }: PlaceholderCardProps) {
   return (
     <div
       className={cn(
-        "rounded-[18px] border border-[#dce4f0]/85 bg-[linear-gradient(180deg,rgba(215,228,245,0.85),rgba(202,218,240,0.82))]",
-        size === "sm" && "h-[170px] w-[198px]",
-        size === "md" && "h-[182px] w-[178px]",
-        size === "lg" && "h-[162px] w-[212px]",
+        "relative overflow-hidden rounded-[14px] border border-[#dce6f5]/80 bg-[linear-gradient(145deg,rgba(206,220,241,0.8),rgba(199,214,236,0.62),rgba(233,225,247,0.55))]",
+        ratio === "square" && "aspect-square",
+        ratio === "landscape" && "aspect-[16/9]",
+        ratio === "portrait" && "aspect-[3/4]",
+        className,
       )}
-    />
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(255,255,255,0.44),transparent_42%),radial-gradient(circle_at_84%_82%,rgba(255,255,255,0.18),transparent_34%)]" />
+    </div>
   );
 }

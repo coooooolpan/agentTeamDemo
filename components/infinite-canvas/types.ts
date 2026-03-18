@@ -1,28 +1,57 @@
-export type CardKind = "text" | "image" | "placeholder";
-export type CardSize = "sm" | "md" | "lg";
+export type OutputType = "doc" | "image" | "video" | "mixed";
 
-export interface CanvasCard {
+export type AssetKind = "image" | "video" | "doc" | "placeholder";
+
+export type OutputCardLayout = "doc" | "triplet" | "quad" | "strip" | "single";
+
+export interface OutputAsset {
   id: string;
-  kind: CardKind;
-  size?: CardSize;
+  kind: AssetKind;
+  src?: string;
   title?: string;
-  subtitle?: string;
-  lines?: string[];
+  ratio?: "square" | "landscape" | "portrait";
 }
 
-export interface FlowGroupData {
+export interface RoleMeta {
   id: string;
-  title?: string;
-  cards: CanvasCard[];
+  name: string;
+  color: string;
+  avatarGradient: string;
 }
 
-export interface WorkflowSection {
+export interface RoleOutputCard {
   id: string;
-  step: number;
-  label: string;
-  subtitle?: string;
-  groupLayout?: "row" | "column";
+  outputBatchId: string;
+  role: RoleMeta;
+  outputType: OutputType;
+  createdAt: string;
+  versionIndex: number;
+  title?: string;
+  description?: string;
+  layout?: OutputCardLayout;
+  width?: number;
+  height?: number;
+  assets: OutputAsset[];
+}
+
+export interface StageRow {
+  id: string;
+  cards: RoleOutputCard[];
+}
+
+export interface StageCluster {
+  id: string;
+  title: string;
+  top: number;
+  rows: StageRow[];
+}
+
+export interface TaskCanvas {
+  taskId: string;
+  taskTitle: string;
+  grouped: boolean;
+  showCanvasBoundary: boolean;
   x: number;
   y: number;
-  groups: FlowGroupData[];
+  stages: StageCluster[];
 }

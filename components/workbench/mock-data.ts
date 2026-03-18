@@ -25,6 +25,7 @@ export const chatAgentCards: ChatAgentCard[] = [
     name: "Research Agent",
     summary: "Competitor analysis and trend insights",
     color: "purple",
+    level: "primary",
     status: "done",
     currentTask: "Completed benchmark scan across 32 pages.",
     tools: ["Web Crawler", "SERP Synthesizer", "Signal Ranker"],
@@ -40,6 +41,7 @@ export const chatAgentCards: ChatAgentCard[] = [
     name: "Marketing Agent",
     summary: "Social media creative strategy and copy hooks",
     color: "green",
+    level: "primary",
     status: "running",
     currentTask: "Generating conversion-first message matrix for IG/TikTok.",
     tools: ["Copy Brain", "Tone Guard", "CTA Composer"],
@@ -51,10 +53,28 @@ export const chatAgentCards: ChatAgentCard[] = [
     ],
   },
   {
+    id: "agent-hook-miner",
+    name: "Hook Miner",
+    summary: "Sub-agent for high-converting hook and CTA variants",
+    color: "green",
+    level: "sub",
+    parentAgentId: "agent-marketing",
+    status: "running",
+    currentTask: "Expanding hook variants for short-video intros.",
+    tools: ["Hook Scorer", "CTA Splitter", "Trend Replay"],
+    outputs: ["Hook Variation Sheet", "CTA Priority Table"],
+    recentLogs: [
+      "Generated 18 hooks by audience intent.",
+      "Ranked CTA lines by click-likelihood.",
+      "Syncing top hooks back to Marketing Agent.",
+    ],
+  },
+  {
     id: "agent-generation",
     name: "Generation Agent",
     summary: "Poster and product video asset production",
     color: "blue",
+    level: "primary",
     status: "running",
     currentTask: "Rendering poster drafts and 15s storyboard frames.",
     tools: ["Visual Composer", "Frame Generator", "Motion Timeline"],
@@ -66,10 +86,28 @@ export const chatAgentCards: ChatAgentCard[] = [
     ],
   },
   {
+    id: "agent-visual-qa",
+    name: "Visual QA",
+    summary: "Sub-agent for frame quality and subtitle rhythm checks",
+    color: "blue",
+    level: "sub",
+    parentAgentId: "agent-generation",
+    status: "idle",
+    currentTask: "Queued to check frame readability and subtitle pacing.",
+    tools: ["Frame Inspector", "Subtitle Timing QA", "Contrast Checker"],
+    outputs: ["Frame Quality Notes", "Subtitle Timing Fix List"],
+    recentLogs: [
+      "Prepared readability thresholds for mobile feeds.",
+      "Loaded subtitle timing profile for 15s format.",
+      "Waiting for latest storyboard render.",
+    ],
+  },
+  {
     id: "agent-review",
     name: "Review Agent",
     summary: "Quality and compliance verification",
     color: "orange",
+    level: "primary",
     status: "idle",
     currentTask: "Queued for final policy and brand consistency check.",
     tools: ["Policy Validator", "Brand QA", "Risk Scanner"],
@@ -186,6 +224,38 @@ const folderTwoFiles: WorkFile[] = [
 ];
 
 const folderThreeFiles: WorkFile[] = [marketReport, posterDraft, promoStoryboard, copyGuidelines];
+
+export interface GeneratedFileFolder {
+  id: string;
+  title: string;
+  updatedAt: string;
+  status: "thinking" | "finished";
+  files: WorkFile[];
+}
+
+export const generatedFileFolders: GeneratedFileFolder[] = [
+  {
+    id: "generated-folder-1",
+    title: "Poster Assets + Promo Video Generation",
+    updatedAt: "Updated now",
+    status: "thinking",
+    files: folderOneFiles,
+  },
+  {
+    id: "generated-folder-2",
+    title: "Poster Assets + Promo Video (v2 Iteration)",
+    updatedAt: "Updated 3 minutes ago",
+    status: "finished",
+    files: folderTwoFiles,
+  },
+  {
+    id: "generated-folder-3",
+    title: "Demo Product (v1 Draft)",
+    updatedAt: "Updated 16 minutes ago",
+    status: "finished",
+    files: folderThreeFiles,
+  },
+];
 
 function tag(label: string, color: AgentTag["color"], placement?: AgentTag["placement"]): AgentTag {
   return { label, color, placement };

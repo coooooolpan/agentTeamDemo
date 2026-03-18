@@ -3,7 +3,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import type { NodeProps } from "@xyflow/react";
 import { CheckCircle2, Circle, CirclePlay, CopyPlus, FileText } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 
 import type {
   DocumentNodeData,
@@ -13,6 +13,10 @@ import type {
   PipelineStepNodeData,
   VideoGenerationNodeData,
 } from "./types";
+import {
+  GeneratingCursorCloud,
+  type GeneratingCursorEntry,
+} from "./GeneratingCursorCloud";
 
 function getEntryDelay(data: Record<string, unknown>) {
   return typeof data.entryDelay === "number" ? data.entryDelay : 0;
@@ -236,18 +240,7 @@ export const DocumentNode = memo(function DocumentNode({
   );
 });
 
-type AgentCursorEntry = {
-  id: string;
-  label: string;
-  color: string;
-  badge: string;
-  placement: string;
-  xDrift: number[];
-  yDrift: number[];
-  rotation: number[];
-};
-
-const documentGeneratingCursorSequence: AgentCursorEntry[] = [
+const documentGeneratingCursorSequence: GeneratingCursorEntry[] = [
   {
     id: "doc-market-scout",
     label: "Market Scout",
@@ -287,65 +280,23 @@ export const GeneratingDocumentNode = memo(function GeneratingDocumentNode({
   const entryDelay = getEntryDelay(nodeData);
   const nodeOpacity = nodeData.isDimmed ? 0.3 : 1;
   const reduceMotion = useReducedMotion();
-  const [activeCursorIds, setActiveCursorIds] = useState<string[]>([
-    documentGeneratingCursorSequence[0].id,
-    documentGeneratingCursorSequence[1].id,
-  ]);
 
   const handleClick = () => {
     nodeData.onOpenPreview?.(nodeData.previewFile);
   };
 
-  useEffect(() => {
-    if (reduceMotion) {
-      return;
-    }
-
-    let disposed = false;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    const scheduleNext = () => {
-      const nextDelay = 2200 + Math.random() * 1700;
-      timeoutId = setTimeout(() => {
-        if (disposed) {
-          return;
-        }
-        setActiveCursorIds((previousIds) =>
-          pickRandomCursorIds(previousIds, documentGeneratingCursorSequence, 2),
-        );
-        scheduleNext();
-      }, nextDelay);
-    };
-
-    scheduleNext();
-
-    return () => {
-      disposed = true;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [reduceMotion]);
-
-  const visibleCursorSet = useMemo(
-    () =>
-      new Set(
-        reduceMotion
-          ? [documentGeneratingCursorSequence[0].id]
-          : Array.from(activeCursorIds),
-      ),
-    [activeCursorIds, reduceMotion],
-  );
-
   return (
     <div className="relative w-[200px] transition-opacity duration-300" style={{ opacity: nodeOpacity }}>
-      <AnimatePresence initial={false}>
-        {documentGeneratingCursorSequence
-          .filter((cursor) => visibleCursorSet.has(cursor.id))
-          .map((cursor) => (
-            <AgentCursor key={cursor.id} cursor={cursor} reduceMotion={!!reduceMotion} />
-          ))}
-      </AnimatePresence>
+      <GeneratingCursorCloud
+        sequence={documentGeneratingCursorSequence}
+        requestedVisibleCount={2}
+        minDelayMs={2200}
+        maxDelayMs={3900}
+        defaultVisibleIds={[
+          documentGeneratingCursorSequence[0]?.id ?? "",
+          documentGeneratingCursorSequence[1]?.id ?? "",
+        ]}
+      />
 
       <motion.button
         type="button"
@@ -520,7 +471,7 @@ export const MediaNode = memo(function MediaNode({
   );
 });
 
-const agentCursorSequence: AgentCursorEntry[] = [
+const agentCursorSequence: GeneratingCursorEntry[] = [
   {
     id: "video-producer",
     label: "Video Producer",
@@ -573,102 +524,6 @@ const agentCursorSequence: AgentCursorEntry[] = [
   },
 ];
 
-function isSameCursorSet(previousIds: string[], nextIds: string[]) {
-  if (previousIds.length !== nextIds.length) {
-    return false;
-  }
-
-  const previousSet = new Set(previousIds);
-  return nextIds.every((id) => previousSet.has(id));
-}
-
-function pickRandomCursorIds(
-  previousIds: string[],
-  cursorSequence: AgentCursorEntry[],
-  requestedVisibleCount = 2,
-) {
-  const allIds = cursorSequence.map((cursor) => cursor.id);
-  const maxVisibleCount = Math.min(requestedVisibleCount, allIds.length);
-  const nextCount = Math.random() < 0.56 ? maxVisibleCount : 1;
-
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    const shuffled = [...allIds].sort(() => Math.random() - 0.5);
-    const picked = shuffled.slice(0, nextCount);
-    if (!isSameCursorSet(previousIds, picked)) {
-      return picked;
-    }
-  }
-
-  return allIds.slice(0, nextCount);
-}
-
-function AgentCursor({
-  cursor,
-  reduceMotion,
-}: {
-  cursor: AgentCursorEntry;
-  reduceMotion: boolean;
-}) {
-  return (
-    <motion.div
-      className={`pointer-events-none absolute z-30 flex items-center gap-2 ${cursor.placement}`}
-      initial={{ opacity: 0, scale: 0.88 }}
-      exit={{ opacity: 0, scale: 0.92 }}
-      animate={{
-        opacity: 1,
-        scale: 1,
-        x: reduceMotion ? 0 : cursor.xDrift,
-        y: reduceMotion ? 0 : cursor.yDrift,
-        rotate: reduceMotion ? 0 : cursor.rotation,
-      }}
-      transition={{
-        opacity: {
-          duration: 0.35,
-          ease: [0.2, 1, 0.32, 1],
-        },
-        scale: {
-          duration: 0.35,
-          ease: [0.2, 1, 0.32, 1],
-        },
-        x: {
-          duration: 4.3,
-          repeat: Infinity,
-          ease: "easeInOut",
-        },
-        y: {
-          duration: 4.8,
-          repeat: Infinity,
-          ease: "easeInOut",
-        },
-        rotate: {
-          duration: 4.8,
-          repeat: Infinity,
-          ease: "easeInOut",
-        },
-      }}
-    >
-      <svg
-        viewBox="0 0 32 32"
-        className="h-8 w-8 shrink-0 drop-shadow-[0_2px_6px_rgba(15,23,42,0.34)]"
-        aria-hidden
-      >
-        <path
-          d="M5.4 3.2L26.6 11.9L15.8 15.8L12 26.6L5.4 3.2Z"
-          fill={cursor.color}
-          stroke="#FFFFFF"
-          strokeWidth="2.5"
-          strokeLinejoin="round"
-        />
-      </svg>
-      <div
-        className={`rounded-full px-5 py-2 text-[13px] font-semibold text-white shadow-[0_16px_26px_rgba(15,23,42,0.22)] ${cursor.badge}`}
-      >
-        {cursor.label}
-      </div>
-    </motion.div>
-  );
-}
-
 export const VideoGenerationNode = memo(function VideoGenerationNode({
   data,
 }: NodeProps) {
@@ -679,67 +534,21 @@ export const VideoGenerationNode = memo(function VideoGenerationNode({
   const compact = nodeData.variant === "compact";
   const cardWidth = compact ? 198 : 430;
   const previewHeight = compact ? 142 : 136;
-  const [activeCursorIds, setActiveCursorIds] = useState<string[]>([
-    agentCursorSequence[0].id,
-  ]);
 
   const handleClick = () => {
     nodeData.onOpenPreview?.(nodeData.previewFile);
   };
 
-  useEffect(() => {
-    if (reduceMotion) {
-      return;
-    }
-
-    let disposed = false;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    const scheduleNext = () => {
-      const nextDelay = 2400 + Math.random() * 2000;
-      timeoutId = setTimeout(() => {
-        if (disposed) {
-          return;
-        }
-        setActiveCursorIds((previousIds) =>
-          pickRandomCursorIds(previousIds, agentCursorSequence, 2),
-        );
-        scheduleNext();
-      }, nextDelay);
-    };
-
-    scheduleNext();
-
-    return () => {
-      disposed = true;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [reduceMotion]);
-
-  const visibleCursorSet = useMemo(
-    () =>
-      new Set(
-        compact
-          ? []
-          : reduceMotion
-            ? [agentCursorSequence[0].id]
-            : Array.from(activeCursorIds),
-      ),
-    [activeCursorIds, compact, reduceMotion],
-  );
-
   return (
     <div className="relative transition-opacity duration-300" style={{ opacity: nodeOpacity, width: cardWidth }}>
       {!compact ? (
-        <AnimatePresence initial={false}>
-          {agentCursorSequence
-            .filter((cursor) => visibleCursorSet.has(cursor.id))
-            .map((cursor) => (
-              <AgentCursor key={cursor.id} cursor={cursor} reduceMotion={!!reduceMotion} />
-            ))}
-        </AnimatePresence>
+        <GeneratingCursorCloud
+          sequence={agentCursorSequence}
+          requestedVisibleCount={2}
+          minDelayMs={2400}
+          maxDelayMs={4400}
+          defaultVisibleIds={[agentCursorSequence[0]?.id ?? ""]}
+        />
       ) : (
         <div
           className="pointer-events-none absolute -top-4 right-2 z-30 rounded-full px-2.5 py-1 text-[10px] font-semibold text-white shadow-[0_10px_16px_rgba(15,23,42,0.18)]"
